@@ -10,7 +10,7 @@ import type {
   DeckMaterialKey,
   PoolTileKey,
   WaterColorKey,
-} from "@/config/materials"
+} from "@/config/materials";
 import { usePoolStore } from "@/store/usePoolStore";
 
 type TexturePaths = {
@@ -20,17 +20,15 @@ type TexturePaths = {
 };
 
 /**
- * ProceduralPoolScene builds the pool from live dimensions and live materials.
+ * Visual-polished procedural pool scene.
  *
- * Important:
- * We are still not using a static pool model.
- * We generate visible pool parts from values:
- * - floor
- * - walls
- * - coping
- * - deck
- * - water
- * - steps
+ * This is still procedural and controlled by sliders, but it is styled to look
+ * more like a premium client demo:
+ * - thinner deck slab
+ * - clean coping frame
+ * - depth shadow inside pool
+ * - glossy transparent water
+ * - visible 3D entry steps
  */
 export function ProceduralPoolScene() {
   const dimensions = usePoolStore((state) => state.dimensions);
@@ -52,16 +50,18 @@ export function ProceduralPoolScene() {
         copingKey={materials.coping}
       />
 
+      <DepthShadow length={dimensions.length} width={dimensions.width} />
+
+      <PoolSteps
+        length={dimensions.length}
+        width={dimensions.width}
+        depth={dimensions.depth}
+      />
+
       <AnimatedWater
         length={dimensions.length}
         width={dimensions.width}
         waterKey={materials.water}
-      />
-
-      <PoolSteps
-       length={dimensions.length}
-       width={dimensions.width}
-       depth={dimensions.depth}
       />
 
       <AccentRim length={dimensions.length} width={dimensions.width} />
@@ -70,12 +70,7 @@ export function ProceduralPoolScene() {
 }
 
 /**
- * Loads a PBR texture set and prepares it for repeating.
- *
- * Why clone textures?
- * useTexture caches the original texture. If we mutate repeat/wrap directly,
- * the same texture can accidentally affect another mesh. Cloning keeps each
- * surface independent.
+ * Loads and prepares a texture set for repeating.
  */
 function useConfiguredTextureSet({
   paths,
@@ -113,11 +108,19 @@ function useConfiguredTextureSet({
       normalMap: paths.normal ? configureTexture(normal) : undefined,
       roughnessMap: paths.roughness ? configureTexture(roughness) : undefined,
     };
-  }, [baseColor, normal, roughness, paths.normal, paths.roughness, repeatX, repeatY]);
+  }, [
+    baseColor,
+    normal,
+    roughness,
+    paths.normal,
+    paths.roughness,
+    repeatX,
+    repeatY,
+  ]);
 }
 
 /**
- * Reusable textured material for pool/deck/coping surfaces.
+ * Shared PBR texture material.
  */
 function TexturedMaterial({
   paths,
@@ -149,7 +152,10 @@ function TexturedMaterial({
 }
 
 /**
- * Patio/deck base around the pool.
+ * Thinner premium patio/deck base.
+ *
+ * Earlier deck was too blocky. This version is thinner and wider, with a
+ * subtle dark base below it to make the top surface feel cleaner.
  */
 function DeckBase({
   length,
@@ -160,24 +166,33 @@ function DeckBase({
   width: number;
   deckKey: DeckMaterialKey;
 }) {
-  const deckLength = length + 3.2;
-  const deckWidth = width + 3.2;
+  const deckLength = length + 3.8;
+  const deckWidth = width + 3.8;
 
   const deckMaterial =
     MATERIAL_LIBRARY.deck.find((material) => material.key === deckKey) ??
     MATERIAL_LIBRARY.deck[0];
 
   return (
-    <mesh receiveShadow position={[0, -0.22, 0]}>
-      <boxGeometry args={[deckLength, 0.18, deckWidth]} />
-      <TexturedMaterial
-        paths={deckMaterial.maps}
-        repeatX={deckLength / 1.4}
-        repeatY={deckWidth / 1.4}
-        fallbackColor="#b8aa93"
-        roughness={0.9}
-      />
-    </mesh>
+    <group>
+      {/* Thin dark underside gives visual separation from background. */}
+      <mesh receiveShadow position={[0, -0.18, 0]}>
+        <boxGeometry args={[deckLength, 0.08, deckWidth]} />
+        <meshStandardMaterial color="#4b463d" roughness={0.9} />
+      </mesh>
+
+      {/* Main patio surface. */}
+      <mesh receiveShadow position={[0, -0.1, 0]}>
+        <boxGeometry args={[deckLength, 0.08, deckWidth]} />
+        <TexturedMaterial
+          paths={deckMaterial.maps}
+          repeatX={deckLength / 1.15}
+          repeatY={deckWidth / 1.15}
+          fallbackColor="#b8aa93"
+          roughness={0.88}
+        />
+      </mesh>
+    </group>
   );
 }
 
@@ -197,9 +212,9 @@ function PoolShell({
   poolTileKey: PoolTileKey;
   copingKey: CopingMaterialKey;
 }) {
-  const wallThickness = 0.18;
-  const copingThickness = 0.34;
-  const copingHeight = 0.24;
+  const wallThickness = 0.16;
+  const copingThickness = 0.3;
+  const copingHeight = 0.16;
 
   const poolTile =
     MATERIAL_LIBRARY.pool.find((material) => material.key === poolTileKey) ??
@@ -211,128 +226,126 @@ function PoolShell({
 
   return (
     <group>
-      {/* Pool floor */}
+      {/* Pool floor sits below the deck. */}
       <mesh receiveShadow position={[0, -depth, 0]}>
-        <boxGeometry args={[length, 0.12, width]} />
+        <boxGeometry args={[length, 0.1, width]} />
         <TexturedMaterial
           paths={poolTile.maps}
-          repeatX={length / 1.2}
-          repeatY={width / 1.2}
+          repeatX={length / 1.05}
+          repeatY={width / 1.05}
           fallbackColor="#0ea5e9"
-          roughness={0.38}
+          roughness={0.34}
         />
       </mesh>
 
-      {/* Front long wall */}
+      {/* Long walls */}
       <mesh castShadow receiveShadow position={[0, -depth / 2, width / 2]}>
         <boxGeometry args={[length, depth, wallThickness]} />
         <TexturedMaterial
           paths={poolTile.maps}
-          repeatX={length / 1.2}
-          repeatY={depth / 0.7}
+          repeatX={length / 1.05}
+          repeatY={depth / 0.65}
           fallbackColor="#0284c7"
-          roughness={0.42}
+          roughness={0.4}
         />
       </mesh>
 
-      {/* Back long wall */}
       <mesh castShadow receiveShadow position={[0, -depth / 2, -width / 2]}>
         <boxGeometry args={[length, depth, wallThickness]} />
         <TexturedMaterial
           paths={poolTile.maps}
-          repeatX={length / 1.2}
-          repeatY={depth / 0.7}
+          repeatX={length / 1.05}
+          repeatY={depth / 0.65}
           fallbackColor="#0284c7"
-          roughness={0.42}
+          roughness={0.4}
         />
       </mesh>
 
-      {/* Right short wall */}
+      {/* Short walls */}
       <mesh castShadow receiveShadow position={[length / 2, -depth / 2, 0]}>
         <boxGeometry args={[wallThickness, depth, width]} />
         <TexturedMaterial
           paths={poolTile.maps}
-          repeatX={width / 1.2}
-          repeatY={depth / 0.7}
+          repeatX={width / 1.05}
+          repeatY={depth / 0.65}
           fallbackColor="#0369a1"
-          roughness={0.42}
+          roughness={0.4}
         />
       </mesh>
 
-      {/* Left short wall */}
       <mesh castShadow receiveShadow position={[-length / 2, -depth / 2, 0]}>
         <boxGeometry args={[wallThickness, depth, width]} />
         <TexturedMaterial
           paths={poolTile.maps}
-          repeatX={width / 1.2}
-          repeatY={depth / 0.7}
+          repeatX={width / 1.05}
+          repeatY={depth / 0.65}
           fallbackColor="#0369a1"
-          roughness={0.42}
+          roughness={0.4}
         />
       </mesh>
 
-      {/* Coping stones around pool top */}
+      {/* Premium stone coping frame */}
       <mesh
         castShadow
         receiveShadow
-        position={[0, 0.18, width / 2 + copingThickness / 2]}
+        position={[0, 0.09, width / 2 + copingThickness / 2]}
       >
         <boxGeometry
           args={[length + copingThickness * 2, copingHeight, copingThickness]}
         />
         <TexturedMaterial
           paths={coping.maps}
-          repeatX={length / 1.1}
+          repeatX={length / 0.95}
           repeatY={1}
           fallbackColor="#d6d1c6"
-          roughness={0.82}
+          roughness={0.8}
         />
       </mesh>
 
       <mesh
         castShadow
         receiveShadow
-        position={[0, 0.18, -width / 2 - copingThickness / 2]}
+        position={[0, 0.09, -width / 2 - copingThickness / 2]}
       >
         <boxGeometry
           args={[length + copingThickness * 2, copingHeight, copingThickness]}
         />
         <TexturedMaterial
           paths={coping.maps}
-          repeatX={length / 1.1}
+          repeatX={length / 0.95}
           repeatY={1}
           fallbackColor="#d6d1c6"
-          roughness={0.82}
+          roughness={0.8}
         />
       </mesh>
 
       <mesh
         castShadow
         receiveShadow
-        position={[length / 2 + copingThickness / 2, 0.18, 0]}
+        position={[length / 2 + copingThickness / 2, 0.09, 0]}
       >
         <boxGeometry args={[copingThickness, copingHeight, width]} />
         <TexturedMaterial
           paths={coping.maps}
-          repeatX={width / 1.1}
+          repeatX={width / 0.95}
           repeatY={1}
           fallbackColor="#c9c2b6"
-          roughness={0.82}
+          roughness={0.8}
         />
       </mesh>
 
       <mesh
         castShadow
         receiveShadow
-        position={[-length / 2 - copingThickness / 2, 0.18, 0]}
+        position={[-length / 2 - copingThickness / 2, 0.09, 0]}
       >
         <boxGeometry args={[copingThickness, copingHeight, width]} />
         <TexturedMaterial
           paths={coping.maps}
-          repeatX={width / 1.1}
+          repeatX={width / 0.95}
           repeatY={1}
           fallbackColor="#c9c2b6"
-          roughness={0.82}
+          roughness={0.8}
         />
       </mesh>
     </group>
@@ -340,12 +353,85 @@ function PoolShell({
 }
 
 /**
- * Animated water surface with uploaded water normal map.
+ * Dark inset just below the water.
  *
- * Fix:
- * - Water is now more transparent so pool floor and steps are visible.
- * - We no longer mutate texture offset inside useFrame, so ESLint passes.
- * - depthWrite=false prevents the water plane from visually blocking objects below it.
+ * This gives a stronger pool-depth illusion and helps water stand out.
+ */
+function DepthShadow({ length, width }: { length: number; width: number }) {
+  return (
+    <mesh position={[0, -0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[Math.max(length - 0.36, 1), Math.max(width - 0.36, 1)]} />
+      <meshBasicMaterial
+        color="#061827"
+        transparent
+        opacity={0.32}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
+/**
+ * More believable shallow-end entry steps.
+ *
+ * They are actual blocks at different depths, not just top lines.
+ */
+function PoolSteps({
+  length,
+  width,
+  depth,
+}: {
+  length: number;
+  width: number;
+  depth: number;
+}) {
+  const stepWidth = Math.max(width - 1.05, 1.5);
+  const startX = -length / 2 + 0.65;
+
+  const stepMaterial = (
+    <meshStandardMaterial
+      color="#baf7ff"
+      roughness={0.24}
+      metalness={0.02}
+      emissive="#0ea5e9"
+      emissiveIntensity={0.04}
+    />
+  );
+
+  return (
+    <group>
+      <mesh
+        castShadow
+        receiveShadow
+        position={[startX, -depth * 0.13, 0]}
+      >
+        <boxGeometry args={[0.58, 0.12, stepWidth]} />
+        {stepMaterial}
+      </mesh>
+
+      <mesh
+        castShadow
+        receiveShadow
+        position={[startX + 0.58, -depth * 0.29, 0]}
+      >
+        <boxGeometry args={[0.58, 0.12, stepWidth - 0.38]} />
+        {stepMaterial}
+      </mesh>
+
+      <mesh
+        castShadow
+        receiveShadow
+        position={[startX + 1.16, -depth * 0.45, 0]}
+      >
+        <boxGeometry args={[0.58, 0.12, stepWidth - 0.76]} />
+        {stepMaterial}
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * Glossier water with normal map.
  */
 function AnimatedWater({
   length,
@@ -368,23 +454,21 @@ function AnimatedWater({
 
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(length / 2, width / 2);
+    texture.repeat.set(length / 1.7, width / 1.7);
     texture.needsUpdate = true;
 
     return texture;
   }, [length, waterNormal, width]);
 
-  const normalScale = useMemo(() => new THREE.Vector2(0.08, 0.08), []);
+  const normalScale = useMemo(() => new THREE.Vector2(0.07, 0.07), []);
 
   useFrame(({ clock }) => {
     if (!waterRef.current) return;
 
-    // Only animate the mesh itself. This is safe for React/ESLint.
     waterRef.current.position.y =
-      0.045 + Math.sin(clock.elapsedTime * 1.4) * 0.01;
+      0.045 + Math.sin(clock.elapsedTime * 1.4) * 0.008;
 
-    // Very subtle movement so the water does not look frozen.
-    waterRef.current.rotation.z = Math.sin(clock.elapsedTime * 0.25) * 0.004;
+    waterRef.current.rotation.z = Math.sin(clock.elapsedTime * 0.25) * 0.003;
   });
 
   return (
@@ -398,8 +482,8 @@ function AnimatedWater({
         args={[
           Math.max(length - 0.48, 1),
           Math.max(width - 0.48, 1),
-          48,
-          24,
+          64,
+          32,
         ]}
       />
 
@@ -407,138 +491,32 @@ function AnimatedWater({
         color={preset.color}
         normalMap={configuredNormal}
         normalScale={normalScale}
-        roughness={0.04}
+        roughness={0.02}
         metalness={0}
         transparent
-        opacity={0.32}
+        opacity={0.36}
         depthWrite={false}
         side={THREE.DoubleSide}
         clearcoat={1}
-        clearcoatRoughness={0.08}
+        clearcoatRoughness={0.04}
       />
     </mesh>
   );
 }
 
 /**
- * Visible shallow-end entry steps.
- *
- * Important POC decision:
- * Real underwater steps can become hard to see because water, shadows,
- * camera angle, and tile colors hide them. For client demo, we make
- * the step top surfaces intentionally visible with a light aqua ceramic look.
- *
- * These are still placed inside the pool at the shallow end.
- */
-function PoolSteps({
-  length,
-  width,
-  depth,
-}: {
-  length: number;
-  width: number;
-  depth: number;
-}) {
-  const stepWidth = Math.max(width - 0.95, 1.5);
-  const startX = -length / 2 + 0.65;
-
-  return (
-    <group>
-      {/* Large top entry platform */}
-      <mesh
-        castShadow
-        receiveShadow
-        renderOrder={4}
-        position={[startX, -depth * 0.12, 0]}
-      >
-        <boxGeometry args={[0.55, 0.08, stepWidth]} />
-        <meshStandardMaterial
-          color="#d9fbff"
-          roughness={0.28}
-          metalness={0.02}
-          transparent
-          opacity={0.92}
-          depthWrite={false}
-          emissive="#22d3ee"
-          emissiveIntensity={0.06}
-        />
-      </mesh>
-
-      {/* Middle step */}
-      <mesh
-        castShadow
-        receiveShadow
-        renderOrder={4}
-        position={[startX + 0.55, -depth * 0.26, 0]}
-      >
-        <boxGeometry args={[0.55, 0.08, stepWidth - 0.35]} />
-        <meshStandardMaterial
-          color="#aef3ff"
-          roughness={0.3}
-          metalness={0.02}
-          transparent
-          opacity={0.9}
-          depthWrite={false}
-          emissive="#22d3ee"
-          emissiveIntensity={0.05}
-        />
-      </mesh>
-
-      {/* Bottom step */}
-      <mesh
-        castShadow
-        receiveShadow
-        renderOrder={4}
-        position={[startX + 1.1, -depth * 0.4, 0]}
-      >
-        <boxGeometry args={[0.55, 0.08, stepWidth - 0.7]} />
-        <meshStandardMaterial
-          color="#7deaff"
-          roughness={0.32}
-          metalness={0.02}
-          transparent
-          opacity={0.88}
-          depthWrite={false}
-          emissive="#22d3ee"
-          emissiveIntensity={0.05}
-        />
-      </mesh>
-
-      {/* Thin bright outline lines on each step.
-          These make steps visible even from top camera angles. */}
-      <mesh renderOrder={5} position={[startX + 0.28, 0.065, 0]}>
-        <boxGeometry args={[0.035, 0.012, stepWidth]} />
-        <meshBasicMaterial color="#e0ffff" transparent opacity={0.85} />
-      </mesh>
-
-      <mesh renderOrder={5} position={[startX + 0.83, 0.066, 0]}>
-        <boxGeometry args={[0.035, 0.012, stepWidth - 0.35]} />
-        <meshBasicMaterial color="#e0ffff" transparent opacity={0.75} />
-      </mesh>
-
-      <mesh renderOrder={5} position={[startX + 1.38, 0.067, 0]}>
-        <boxGeometry args={[0.035, 0.012, stepWidth - 0.7]} />
-        <meshBasicMaterial color="#e0ffff" transparent opacity={0.7} />
-      </mesh>
-    </group>
-  );
-}
-
-/**
- * Cyan accent line around the pool.
- *
- * For client demo language, this can be presented as optional LED lighting.
+ * Subtle LED accent strips.
  */
 function AccentRim({ length, width }: { length: number; width: number }) {
   return (
     <group>
-      <mesh position={[0, 0.23, width / 2 + 0.52]}>
-        <boxGeometry args={[length + 0.8, 0.035, 0.035]} />
+      <mesh position={[0, 0.175, width / 2 + 0.44]}>
+        <boxGeometry args={[length + 0.6, 0.03, 0.03]} />
         <meshBasicMaterial color="#67e8f9" transparent opacity={0.8} />
       </mesh>
 
-      <mesh position={[0, 0.23, -width / 2 - 0.52]}>
-        <boxGeometry args={[length + 0.8, 0.035, 0.035]} />
+      <mesh position={[0, 0.175, -width / 2 - 0.44]}>
+        <boxGeometry args={[length + 0.6, 0.03, 0.03]} />
         <meshBasicMaterial color="#67e8f9" transparent opacity={0.5} />
       </mesh>
     </group>

@@ -1,18 +1,14 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Suspense, useRef } from "react";
 import Link from "next/link";
-import { RotateCcw, Ruler, Sparkles, Waves } from "lucide-react";
-import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { ContactShadows, OrbitControls } from "@react-three/drei";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { IfInSessionMode, XR } from "@react-three/xr";
-
-import { ArPlacementScene } from "@/components/studio/ArPlacementScene";
-import { ArLaunchButton } from "@/components/studio/ArLaunchButton";
-import { xrStore } from "@/components/studio/xrStore";
+import { RotateCcw, Ruler, Sparkles, Waves } from "lucide-react";
+import type { ReactNode } from "react";
+import { Suspense, useRef } from "react";
+import * as THREE from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { MATERIAL_LIBRARY, WATER_PRESETS } from "@/config/materials";
 import type {
   CopingMaterialKey,
@@ -20,18 +16,21 @@ import type {
   PoolTileKey,
   WaterColorKey,
 } from "@/config/materials";
-import { ProceduralPoolScene } from "@/components/studio/ProceduralPoolScene";
-import { usePoolStore } from "@/store/usePoolStore";
 import { PwaInstallCard } from "@/components/pwa/PwaInstallCard";
+import { ArLaunchButton } from "@/components/studio/ArLaunchButton";
+import { ArPlacementScene } from "@/components/studio/ArPlacementScene";
+import { ProceduralPoolScene } from "@/components/studio/ProceduralPoolScene";
+import { xrStore } from "@/components/studio/xrStore";
+import { usePoolStore } from "@/store/usePoolStore";
 
 /**
  * Main studio experience.
  *
- * Step 5:
- * - procedural rectangular pool
- * - live dimensions
- * - uploaded material textures
- * - material and water swatchesf
+ * Polish Step 11A:
+ * - Desktop: canvas + fixed right sidebar
+ * - Mobile: full-screen canvas + bottom sheet controls
+ * - AR button floats above the mobile bottom sheet
+ * - Camera/controls tuned so pool does not feel tiny on phone
  */
 export function StudioExperience() {
   const dimensions = usePoolStore((state) => state.dimensions);
@@ -41,35 +40,37 @@ export function StudioExperience() {
   const resetDimensions = usePoolStore((state) => state.resetDimensions);
 
   return (
-    <main className="min-h-screen bg-[#07111f] text-white">
-      <div className="flex min-h-screen flex-col lg:flex-row">
+    <main className="h-[100svh] overflow-hidden bg-[#07111f] text-white">
+      <div className="relative h-full lg:flex">
         {/* 3D preview area */}
-        <section className="relative min-h-[65vh] flex-1 overflow-hidden border-b border-white/10 bg-[#07111f] lg:min-h-screen lg:border-b-0 lg:border-r">
-          <div className="absolute left-5 top-5 z-20">
+        <section className="relative h-[100svh] flex-1 overflow-hidden border-white/10 bg-[#07111f] lg:border-r">
+          <div className="absolute left-4 top-4 z-30 sm:left-5 sm:top-5">
             <Link
               href="/"
-              className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm font-semibold text-slate-200 backdrop-blur transition hover:bg-black/45"
+              className="rounded-full border border-white/10 bg-black/35 px-4 py-2 text-sm font-semibold text-slate-200 backdrop-blur transition hover:bg-black/45"
             >
               ← Back
             </Link>
           </div>
 
-          <div className="absolute left-5 top-20 z-20 max-w-[315px] rounded-2xl border border-white/10 bg-black/25 p-4 backdrop-blur">
+          {/* Mobile compact status badge.
+              Desktop gets a larger info card. */}
+          <div className="absolute left-4 right-4 top-16 z-20 rounded-2xl border border-white/10 bg-black/25 p-3 backdrop-blur sm:left-5 sm:right-auto sm:top-20 sm:max-w-[315px] sm:p-4">
             <p className="flex items-center gap-2 text-sm font-bold text-white">
               <Sparkles className="h-4 w-4 text-cyan-300" />
-              Real Materials Active
+              Live Pool Studio
             </p>
-            <p className="mt-1 text-sm leading-6 text-slate-300">
-              Uploaded pool, coping, deck, and water assets are now connected to
-              the live 3D scene.
+            <p className="mt-1 hidden text-sm leading-6 text-slate-300 sm:block">
+              Customize dimensions, finishes, water, and preview the pool in AR.
             </p>
           </div>
 
           <Canvas
+            className="h-full w-full"
             camera={{
-							// Wider default view so the full pool/deck is visible for client demo.
-							position: [10.5, 7.2, 12],
-							fov: 46,
+              // Slightly closer and wider so mobile view does not look tiny.
+              position: [8.5, 5.8, 9.5],
+              fov: 48,
             }}
             shadows
             dpr={[1, 2]}
@@ -78,61 +79,59 @@ export function StudioExperience() {
               alpha: false,
             }}
           >
-            <color attach="background" args={["#07111f"]} />
-
             <Suspense fallback={null}>
               <XR store={xrStore}>
-                {/* Normal desktop/mobile studio scene.
-        This is hidden during immersive AR so OrbitControls cannot fight WebXR camera. */}
+                {/* Normal studio scene.
+                    Denied in immersive AR so OrbitControls never fights AR camera. */}
                 <IfInSessionMode deny="immersive-ar">
                   <color attach="background" args={["#07111f"]} />
 
                   <SceneLights />
-
                   <ProceduralPoolScene />
 
                   <ContactShadows
                     position={[0, -0.24, 0]}
-                    opacity={0.42}
+                    opacity={0.45}
                     scale={24}
-                    blur={2.8}
-                    far={6}
+                    blur={3}
+                    far={7}
                   />
 
                   <StableOrbitControls />
                 </IfInSessionMode>
 
-                {/* Android AR placement scene.
-                This is only active inside immersive AR. */}
+                {/* Android AR placement scene. */}
                 <IfInSessionMode allow="immersive-ar">
                   <SceneLights />
                   <ArPlacementScene />
                 </IfInSessionMode>
               </XR>
             </Suspense>
-
-          <StableOrbitControls />
           </Canvas>
 
           <ArLaunchButton />
         </section>
 
-        {/* Right customization panel */}
-        <aside className="w-full border-white/10 bg-[#0b1628] p-5 lg:w-[380px] lg:border-l">
+        {/* Controls panel.
+            Mobile: bottom sheet overlay.
+            Desktop: right sidebar. */}
+        <aside className="fixed inset-x-0 bottom-0 z-20 max-h-[42svh] overflow-y-auto rounded-t-[2rem] border-t border-white/10 bg-[#0b1628]/95 p-4 shadow-[0_-28px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:static lg:z-auto lg:h-[100svh] lg:max-h-none lg:w-[380px] lg:rounded-none lg:border-l lg:border-t-0 lg:bg-[#0b1628] lg:p-5 lg:shadow-none">
+          {/* Mobile drag handle visual */}
+          <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/20 lg:hidden" />
+
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-300">
               Pool Configurator
             </p>
-            <h1 className="mt-2 text-2xl font-black text-white">
+            <h1 className="mt-2 text-xl font-black text-white sm:text-2xl">
               Design Controls
             </h1>
             <p className="mt-2 text-sm leading-6 text-slate-400">
-              Customize size, surface finishes, and water look. This is now
-              close to a client-presentable design demo.
+              Customize size, finishes, water, and preview in AR.
             </p>
           </div>
 
-          <div className="mt-8 space-y-5">
+          <div className="mt-5 space-y-5 pb-6 lg:mt-8">
             <ControlCard
               icon={<Ruler className="h-4 w-4 text-cyan-300" />}
               title="Dimensions"
@@ -260,7 +259,8 @@ export function StudioExperience() {
                 ))}
               </div>
             </ControlCard>
-						<PwaInstallCard />
+
+            <PwaInstallCard />
           </div>
         </aside>
       </div>
@@ -269,22 +269,22 @@ export function StudioExperience() {
 }
 
 /**
- * Studio lighting.
+ * Studio lighting tuned for a cleaner sales-demo look.
  */
 function SceneLights() {
   return (
     <>
-      <hemisphereLight args={["#bdefff", "#172033", 1.8]} />
+      <hemisphereLight args={["#d8f7ff", "#172033", 2.05]} />
 
       <directionalLight
         castShadow
-        position={[6, 8, 5]}
-        intensity={3.3}
-        shadow-mapSize={[1024, 1024]}
+        position={[7, 9, 6]}
+        intensity={3.9}
+        shadow-mapSize={[1536, 1536]}
       />
 
-      <pointLight position={[-5, 3, -4]} intensity={5} color="#22d3ee" />
-      <pointLight position={[4, 2.5, 4]} intensity={2.2} color="#fbbf24" />
+      <pointLight position={[-5, 3, -4]} intensity={5.2} color="#22d3ee" />
+      <pointLight position={[4, 2.5, 4]} intensity={2.4} color="#fbbf24" />
     </>
   );
 }
@@ -292,19 +292,12 @@ function SceneLights() {
 /**
  * Stable camera controls for the 3D studio.
  *
- * Required UX:
- * - Left mouse drag  = rotate/orbit
- * - Mouse wheel      = zoom
- * - Right mouse drag = pan
+ * UX:
+ * - Left drag = rotate
+ * - Wheel = zoom
+ * - Right drag = pan
  *
- * Important:
- * OrbitControls pan normally changes the internal target point.
- * If target moves too freely, rotation starts feeling broken after panning.
- *
- * Fix:
- * - screenSpacePanning=false keeps pan aligned to the world/up axis.
- * - target is softly clamped so it cannot drift too far.
- * - target Y is stabilized so orbit does not start rotating around a strange height.
+ * Pan is bounded so the orbit target cannot drift too far and break rotation.
  */
 function StableOrbitControls() {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -317,8 +310,6 @@ function StableOrbitControls() {
     }
 
     const target = controls.target;
-
-    // Allow panning, but do not let the orbit target run too far away.
     const maxPanDistance = 5.5;
 
     target.x = THREE.MathUtils.clamp(
@@ -333,8 +324,6 @@ function StableOrbitControls() {
       maxPanDistance
     );
 
-    // This is the important stabilizer.
-    // It prevents right-drag pan from pushing the orbit center too high/low.
     target.y = THREE.MathUtils.lerp(target.y, -0.35, 0.18);
 
     controls.update();
@@ -352,27 +341,19 @@ function StableOrbitControls() {
       rotateSpeed={0.72}
       zoomSpeed={0.85}
       panSpeed={0.72}
-
-      // Key option for stable ground/world panning.
-      // true = pan in screen space, often feels weird after orbiting.
-      // false = pan along world/up plane, better for architectural scenes.
       screenSpacePanning={false}
-
-      // Explicit mouse behavior.
       mouseButtons={{
         LEFT: THREE.MOUSE.ROTATE,
         MIDDLE: THREE.MOUSE.DOLLY,
         RIGHT: THREE.MOUSE.PAN,
       }}
-
-      // Mobile/touch behavior.
       touches={{
         ONE: THREE.TOUCH.ROTATE,
         TWO: THREE.TOUCH.DOLLY_PAN,
       }}
-      minDistance={4}
-      maxDistance={40}
-      minPolarAngle={0.18}
+      minDistance={3.2}
+      maxDistance={42}
+      minPolarAngle={0.16}
       maxPolarAngle={Math.PI / 2.05}
       target={[0, -0.35, 0]}
     />
@@ -380,7 +361,7 @@ function StableOrbitControls() {
 }
 
 /**
- * Reusable settings card for the right control panel.
+ * Reusable settings card.
  */
 function ControlCard({
   icon,

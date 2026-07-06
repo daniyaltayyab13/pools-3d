@@ -108,14 +108,14 @@ export function ArLaunchButton() {
     <>
       <button
         onClick={handleClick}
-        className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-black text-slate-950 shadow-[0_0_40px_rgba(251,191,36,0.42)] transition hover:bg-amber-300"
+        className="absolute bottom-[45svh] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-black text-slate-950 shadow-[0_0_40px_rgba(251,191,36,0.42)] transition hover:bg-amber-300 lg:bottom-6"
       >
         <Smartphone className="h-4 w-4" />
         {getButtonLabel(mode)}
       </button>
 
       {message ? (
-        <div className="absolute bottom-24 left-1/2 z-30 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 rounded-2xl border border-white/10 bg-slate-950/90 p-4 text-white shadow-2xl backdrop-blur">
+        <div className="absolute bottom-[52svh] left-1/2 z-40 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 rounded-2xl border border-white/10 bg-slate-950/90 p-4 text-white shadow-2xl backdrop-blur lg:bottom-24">
           <div className="flex items-start gap-3">
             <div className="rounded-full bg-amber-400 p-2 text-slate-950">
               <Smartphone className="h-4 w-4" />
