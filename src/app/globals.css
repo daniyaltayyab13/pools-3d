@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Global POC polish.
+   These styles make the app feel premium before the 3D scene is added. */
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: #07111f;
+  color: white;
+}
+
+/* Better default text rendering for a polished client demo. */
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Remove ugly tap highlight on mobile PWA. */
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}

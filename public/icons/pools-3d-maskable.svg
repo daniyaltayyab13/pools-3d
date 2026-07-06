@@ -1,0 +1,10 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#07111F"/>
+  <circle cx="92" cy="86" r="150" fill="#00B4D8" fill-opacity="0.24"/>
+  <circle cx="432" cy="430" r="170" fill="#F5A524" fill-opacity="0.2"/>
+  <rect x="96" y="152" width="320" height="208" rx="46" fill="#D8D3C6"/>
+  <rect x="130" y="186" width="252" height="140" rx="32" fill="#00B4D8"/>
+  <path d="M158 230C190 211 222 249 254 230C286 211 318 249 350 230" stroke="#D9FBFF" stroke-width="14" stroke-linecap="round"/>
+  <path d="M158 274C190 255 222 293 254 274C286 255 318 293 350 274" stroke="#D9FBFF" stroke-width="14" stroke-linecap="round" opacity="0.72"/>
+  <text x="256" y="424" text-anchor="middle" fill="#F2F8FB" font-family="Arial, sans-serif" font-size="54" font-weight="800">Pools 3D</text>
+</svg>

@@ -1,0 +1,26 @@
+{
+  "name": "Pools 3D Studio POC",
+  "short_name": "Pools 3D",
+  "description": "Design a swimming pool in real-time 3D and preview it in your backyard.",
+  "start_url": "/studio?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07111F",
+  "theme_color": "#07111F",
+  "categories": ["design", "lifestyle", "business"],
+  "icons": [
+    {
+      "src": "/icons/pools-3d-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/pools-3d-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
