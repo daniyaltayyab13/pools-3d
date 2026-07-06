@@ -1,12 +1,11 @@
 /**
- * Small browser helpers for AR support detection.
+ * Browser helpers for AR support detection.
  *
- * Android Chrome:
- * - may support WebXR immersive-ar
+ * Android:
+ * - WebXR immersive-ar
  *
- * iPhone Safari:
- * - does not use WebXR AR for our path
- * - later we use USDZ + AR Quick Look
+ * iPhone:
+ * - Apple AR Quick Look with USDZ
  */
 
 type NavigatorWithXR = Navigator & {
@@ -26,6 +25,21 @@ export function isIOSDevice() {
     /iphone|ipad|ipod/.test(userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
   );
+}
+
+/**
+ * Checks Apple AR Quick Look support.
+ *
+ * Safari/WebKit exposes this through relList.supports("ar").
+ */
+export function isQuickLookArSupported() {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const anchor = document.createElement("a");
+
+  return Boolean(anchor.relList?.supports?.("ar"));
 }
 
 export async function isWebXRArSupported() {
