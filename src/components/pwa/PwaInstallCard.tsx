@@ -124,13 +124,15 @@ export function PwaInstallCard() {
         </div>
 
         <p className="mt-2 text-sm leading-6 text-slate-300">
-          On iPhone, open Safari share menu and choose{" "}
+          iPhone does not show an automatic install button. Open this website in{" "}
+          <span className="font-bold text-white">Safari</span>, then tap{" "}
+          <span className="font-bold text-white">Share</span> and choose{" "}
           <span className="font-bold text-white">Add to Home Screen</span>.
         </p>
 
         <div className="mt-3 rounded-xl border border-cyan-300/20 bg-cyan-300/10 p-3 text-xs leading-5 text-cyan-100">
-          iOS does not allow websites to open the install prompt directly, so
-          this manual step is expected.
+          If you opened the link from WhatsApp, tap the share/open option and open
+          it in Safari first. This is normal iOS behavior.
         </div>
       </div>
     );

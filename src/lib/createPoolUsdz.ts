@@ -7,13 +7,17 @@ import type { PoolMaterials } from "@/config/materials";
 /**
  * Creates a dynamic USDZ file URL for iPhone AR Quick Look.
  *
- * POC goal:
- * - Generate current pool shape/dimensions as a real 3D AR model.
- * - Keep it lightweight and reliable.
+ * Important POC decision:
+ * For iPhone AR, we export a clean "surface preview" model instead of a deep
+ * recessed pool. Real AR floors do not cut holes into the user's floor, so a
+ * below-ground pool can look broken/weird in Quick Look.
  *
- * Note:
- * This first iPhone AR version uses color-based materials instead of image
- * textures because USDZ texture export can be browser/device sensitive.
+ * This version is designed to look good in iPhone AR:
+ * - stone deck slab
+ * - clear rectangular water area
+ * - coping frame
+ * - visible shallow-end steps
+ * - LED accent lines
  */
 export async function createPoolUsdzUrl({
   dimensions,
@@ -25,11 +29,6 @@ export async function createPoolUsdzUrl({
   const group = buildPoolObject3D({ dimensions, materials });
 
   const exporter = new USDZExporter();
-
-  /**
-   * USDZExporter returns an ArrayBuffer.
-   * We convert it into a browser object URL that iOS Safari can open.
-   */
   const arrayBuffer = await exporter.parseAsync(group);
 
   const blob = new Blob([arrayBuffer], {
@@ -44,17 +43,14 @@ export async function createPoolUsdzUrl({
 }
 
 /**
- * Builds a THREE.Group version of our current pool.
+ * Builds an iPhone-friendly AR model.
  *
- * This mirrors the visible POC scene:
- * - deck
- * - pool floor
- * - walls
- * - coping
- * - water
- * - entry steps
+ * 1 Three.js unit = 1 meter.
  *
- * 1 unit = 1 meter.
+ * We intentionally keep this mostly top-surface based because Apple Quick Look
+ * places objects on top of the real floor/ground. A "deep hole" model does not
+ * look convincing unless we also build an occlusion/ground-cut system, which is
+ * out of scope for this POC.
  */
 function buildPoolObject3D({
   dimensions,
@@ -63,7 +59,7 @@ function buildPoolObject3D({
   dimensions: PoolDimensions;
   materials: PoolMaterials;
 }) {
-  const { length, width, depth } = dimensions;
+  const { length, width } = dimensions;
 
   const group = new THREE.Group();
   group.name = "Pools 3D Studio - iPhone AR Preview";
@@ -71,89 +67,105 @@ function buildPoolObject3D({
   const colors = getMaterialColors(materials);
 
   const deckMaterial = createStandardMaterial(colors.deck, 0.86);
-  const copingMaterial = createStandardMaterial(colors.coping, 0.74);
-  const poolMaterial = createStandardMaterial(colors.poolTile, 0.38);
-  const stepMaterial = createStandardMaterial("#d9fbff", 0.32);
+  const copingMaterial = createStandardMaterial(colors.coping, 0.72);
+  const waterMaterial = createStandardMaterial(colors.water, 0.18);
+  const darkInsetMaterial = createStandardMaterial("#07111f", 0.5);
+  const stepMaterial = createStandardMaterial("#d9fbff", 0.26);
 
-  const waterMaterial = new THREE.MeshStandardMaterial({
-    color: colors.water,
-    roughness: 0.08,
-    metalness: 0,
-    transparent: true,
-    opacity: 0.52,
+  const ledMaterial = new THREE.MeshBasicMaterial({
+    color: "#67e8f9",
   });
 
   const deckLength = length + 3.2;
   const deckWidth = width + 3.2;
 
   /**
-   * Deck top should sit close to ground level in AR.
-   * Quick Look places the model around its origin, so we keep the deck centered.
+   * Main patio/deck slab.
+   * This is the base object that Apple Quick Look places on the real floor.
    */
   addBox({
     parent: group,
-    name: "Stone Deck",
-    size: [deckLength, 0.18, deckWidth],
-    position: [0, -0.09, 0],
+    name: "Stone Deck Slab",
+    size: [deckLength, 0.08, deckWidth],
+    position: [0, 0.04, 0],
     material: deckMaterial,
   });
 
   /**
-   * Pool floor and walls go below the deck level.
+   * Dark inset shadow under the water/coping frame.
+   * This makes the pool look like it is recessed without actually going deep
+   * below the AR floor.
    */
   addBox({
     parent: group,
-    name: "Pool Floor",
-    size: [length, 0.12, width],
-    position: [0, -depth, 0],
-    material: poolMaterial,
-  });
-
-  const wallThickness = 0.18;
-
-  addBox({
-    parent: group,
-    name: "Front Pool Wall",
-    size: [length, depth, wallThickness],
-    position: [0, -depth / 2, width / 2],
-    material: poolMaterial,
-  });
-
-  addBox({
-    parent: group,
-    name: "Back Pool Wall",
-    size: [length, depth, wallThickness],
-    position: [0, -depth / 2, -width / 2],
-    material: poolMaterial,
-  });
-
-  addBox({
-    parent: group,
-    name: "Right Pool Wall",
-    size: [wallThickness, depth, width],
-    position: [length / 2, -depth / 2, 0],
-    material: poolMaterial,
-  });
-
-  addBox({
-    parent: group,
-    name: "Left Pool Wall",
-    size: [wallThickness, depth, width],
-    position: [-length / 2, -depth / 2, 0],
-    material: poolMaterial,
+    name: "Pool Recess Shadow",
+    size: [length + 0.3, 0.035, width + 0.3],
+    position: [0, 0.1, 0],
+    material: darkInsetMaterial,
   });
 
   /**
-   * Coping / stone edge around pool.
+   * Water rectangle.
+   * It sits slightly above the deck, so iPhone Quick Look renders it cleanly.
+   */
+  addBox({
+    parent: group,
+    name: "Water Surface",
+    size: [length, 0.04, width],
+    position: [0, 0.145, 0],
+    material: waterMaterial,
+  });
+
+  /**
+   * Subtle darker inner border.
+   * This creates visual depth around the pool.
+   */
+  const innerBorderMaterial = createStandardMaterial("#0b1f3a", 0.48);
+  const innerBorderThickness = 0.08;
+
+  addBox({
+    parent: group,
+    name: "Front Inner Depth Border",
+    size: [length, 0.035, innerBorderThickness],
+    position: [0, 0.17, width / 2 - innerBorderThickness / 2],
+    material: innerBorderMaterial,
+  });
+
+  addBox({
+    parent: group,
+    name: "Back Inner Depth Border",
+    size: [length, 0.035, innerBorderThickness],
+    position: [0, 0.17, -width / 2 + innerBorderThickness / 2],
+    material: innerBorderMaterial,
+  });
+
+  addBox({
+    parent: group,
+    name: "Right Inner Depth Border",
+    size: [innerBorderThickness, 0.035, width],
+    position: [length / 2 - innerBorderThickness / 2, 0.17, 0],
+    material: innerBorderMaterial,
+  });
+
+  addBox({
+    parent: group,
+    name: "Left Inner Depth Border",
+    size: [innerBorderThickness, 0.035, width],
+    position: [-length / 2 + innerBorderThickness / 2, 0.17, 0],
+    material: innerBorderMaterial,
+  });
+
+  /**
+   * Coping / stone frame around pool.
    */
   const copingThickness = 0.34;
-  const copingHeight = 0.24;
+  const copingHeight = 0.08;
 
   addBox({
     parent: group,
     name: "Front Coping",
     size: [length + copingThickness * 2, copingHeight, copingThickness],
-    position: [0, copingHeight / 2, width / 2 + copingThickness / 2],
+    position: [0, 0.22, width / 2 + copingThickness / 2],
     material: copingMaterial,
   });
 
@@ -161,7 +173,7 @@ function buildPoolObject3D({
     parent: group,
     name: "Back Coping",
     size: [length + copingThickness * 2, copingHeight, copingThickness],
-    position: [0, copingHeight / 2, -width / 2 - copingThickness / 2],
+    position: [0, 0.22, -width / 2 - copingThickness / 2],
     material: copingMaterial,
   });
 
@@ -169,7 +181,7 @@ function buildPoolObject3D({
     parent: group,
     name: "Right Coping",
     size: [copingThickness, copingHeight, width],
-    position: [length / 2 + copingThickness / 2, copingHeight / 2, 0],
+    position: [length / 2 + copingThickness / 2, 0.22, 0],
     material: copingMaterial,
   });
 
@@ -177,65 +189,51 @@ function buildPoolObject3D({
     parent: group,
     name: "Left Coping",
     size: [copingThickness, copingHeight, width],
-    position: [-length / 2 - copingThickness / 2, copingHeight / 2, 0],
+    position: [-length / 2 - copingThickness / 2, 0.22, 0],
     material: copingMaterial,
   });
 
   /**
-   * Water as a very thin transparent box.
-   * This exports more reliably to USDZ than a pure PlaneGeometry.
+   * Shallow-end steps.
+   * These are intentionally visible in iPhone AR. They are placed on top of
+   * the water as a visual cue because transparent underwater geometry can be
+   * unreliable in Quick Look.
    */
-  addBox({
-    parent: group,
-    name: "Water Surface",
-    size: [Math.max(length - 0.48, 1), 0.025, Math.max(width - 0.48, 1)],
-    position: [0, 0.04, 0],
-    material: waterMaterial,
-  });
-
-  /**
-   * Visible entry steps.
-   */
-  const stepWidth = Math.max(width - 0.95, 1.5);
-  const startX = -length / 2 + 0.65;
+  const stepWidth = Math.max(width - 1.05, 1.5);
+  const startX = -length / 2 + 0.7;
 
   addBox({
     parent: group,
     name: "Top Entry Step",
-    size: [0.55, 0.1, stepWidth],
-    position: [startX, -depth * 0.12, 0],
+    size: [0.5, 0.045, stepWidth],
+    position: [startX, 0.255, 0],
     material: stepMaterial,
   });
 
   addBox({
     parent: group,
     name: "Middle Entry Step",
-    size: [0.55, 0.1, stepWidth - 0.35],
-    position: [startX + 0.55, -depth * 0.26, 0],
+    size: [0.5, 0.045, stepWidth - 0.35],
+    position: [startX + 0.55, 0.265, 0],
     material: stepMaterial,
   });
 
   addBox({
     parent: group,
     name: "Bottom Entry Step",
-    size: [0.55, 0.1, stepWidth - 0.7],
-    position: [startX + 1.1, -depth * 0.4, 0],
+    size: [0.5, 0.045, stepWidth - 0.7],
+    position: [startX + 1.1, 0.275, 0],
     material: stepMaterial,
   });
 
   /**
-   * Small cyan LED-style accent line.
-   * Good for demo visual punch.
+   * Small cyan accent lines on both sides.
    */
-  const ledMaterial = new THREE.MeshBasicMaterial({
-    color: "#67e8f9",
-  });
-
   addBox({
     parent: group,
     name: "Front LED Accent",
     size: [length + 0.8, 0.035, 0.035],
-    position: [0, 0.22, width / 2 + 0.52],
+    position: [0, 0.29, width / 2 + 0.62],
     material: ledMaterial,
   });
 
@@ -243,15 +241,23 @@ function buildPoolObject3D({
     parent: group,
     name: "Back LED Accent",
     size: [length + 0.8, 0.035, 0.035],
-    position: [0, 0.22, -width / 2 - 0.52],
+    position: [0, 0.29, -width / 2 - 0.62],
     material: ledMaterial,
   });
+
+  /**
+   * Move model so its bottom sits cleanly on Quick Look's placement plane.
+   */
+  group.position.y = 0;
 
   return group;
 }
 
 /**
- * Converts current selected material keys into simple AR-safe colors.
+ * Converts current selected material keys into AR-safe colors.
+ *
+ * USDZ dynamic texture export can vary by browser/device, so for this POC we
+ * use clean material colors that survive iPhone Quick Look reliably.
  */
 function getMaterialColors(materials: PoolMaterials) {
   const waterPreset =
@@ -267,7 +273,7 @@ function getMaterialColors(materials: PoolMaterials) {
 }
 
 /**
- * Helper for adding box geometry to the USDZ scene.
+ * Adds a simple box mesh to the USDZ scene.
  */
 function addBox({
   parent,
@@ -294,7 +300,7 @@ function addBox({
 }
 
 /**
- * Standard material helper.
+ * Standard AR-safe material.
  */
 function createStandardMaterial(color: string, roughness: number) {
   return new THREE.MeshStandardMaterial({
