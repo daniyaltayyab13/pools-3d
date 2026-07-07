@@ -9,8 +9,13 @@ import { createXRStore } from "@react-three/xr";
  * domOverlay:
  * - allows us to show HTML buttons inside handheld AR:
  *   Place Pool, Move Again, Exit AR.
+ * 
+ * * offerSession=false:
+ * Hides the default browser/library "Enter XR" button.
+ * We use our own custom "View in Your Backyard" button instead.
  */
 export const xrStore = createXRStore({
   hitTest: true,
   domOverlay: true,
+  offerSession: false,
 });
