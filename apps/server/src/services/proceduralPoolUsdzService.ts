@@ -16,12 +16,32 @@ import type { DesignConfig } from "../schemas/designConfig";
  */
 type UsdzExporterResult = ArrayBuffer | Uint8Array | Buffer | Blob | string;
 
+type UsdzExporterOptions = {
+  maxTextureSize?: number;
+  includeAnchoringProperties?: boolean;
+  quickLookCompatible?: boolean;
+  ar?: {
+    anchoring?: {
+      type?: "plane";
+    };
+    planeAnchoring?: {
+      alignment?: "horizontal" | "vertical";
+    };
+  };
+};
+
 type UsdzExporterInstance = {
   parse: (
     input: Group,
     onDone?: (result: UsdzExporterResult) => void,
-    onError?: (error: unknown) => void
+    onError?: (error: unknown) => void,
+    options?: UsdzExporterOptions
   ) => Promise<UsdzExporterResult> | UsdzExporterResult | void;
+
+  parseAsync?: (
+    input: Group,
+    options?: UsdzExporterOptions
+  ) => Promise<ArrayBuffer>;
 };
 
 type UsdzExporterModule = {
@@ -60,21 +80,38 @@ export async function generateProceduralPoolUsdz(
 
   const exporter = new USDZExporter();
 
+  const options: UsdzExporterOptions = {
+    maxTextureSize: 1024,
+    includeAnchoringProperties: true,
+    quickLookCompatible: true,
+    ar: {
+      anchoring: {
+        type: "plane",
+      },
+      planeAnchoring: {
+        alignment: "horizontal",
+      },
+    },
+  };
+
   /**
-   * USDZExporter can behave differently depending on Three.js version:
-   * - some versions return a Promise/ArrayBuffer
-   * - some versions use callback style and return void
-   *
-   * This wrapper supports both.
+   * Prefer parseAsync when available because Three.js documents it as
+   * the Promise-based USDZ export API.
    */
-  const result = await parseUsdz(exporter, poolModel);
+  if (exporter.parseAsync) {
+    const result = await exporter.parseAsync(poolModel, options);
+    return Buffer.from(result);
+  }
+
+  const result = await parseUsdz(exporter, poolModel, options);
 
   return usdzResultToBuffer(result);
 }
 
 function parseUsdz(
   exporter: UsdzExporterInstance,
-  poolModel: Group
+  poolModel: Group,
+  options: UsdzExporterOptions
 ): Promise<UsdzExporterResult> {
   return new Promise((resolve, reject) => {
     try {
@@ -85,12 +122,10 @@ function parseUsdz(
         },
         (error) => {
           reject(toError(error));
-        }
+        },
+        options
       );
 
-      /**
-       * Promise-style exporter.
-       */
       if (isPromiseLike(maybeResult)) {
         maybeResult.then(resolve).catch((error: unknown) => {
           reject(toError(error));
@@ -98,16 +133,9 @@ function parseUsdz(
         return;
       }
 
-      /**
-       * Direct return-style exporter.
-       */
       if (maybeResult) {
         resolve(maybeResult);
       }
-
-      /**
-       * If maybeResult is undefined, callback-style exporter will resolve later.
-       */
     } catch (error) {
       reject(toError(error));
     }
@@ -161,349 +189,310 @@ function buildPoolModel(config: DesignConfig) {
   const { length, width, depth } = config.dimensions;
 
   /**
-   * USDZ/Quick Look visual strategy:
+   * iPhone Quick Look strategy:
    *
-   * We keep real length/width in meters, but build the deck as four slabs
-   * around a center opening. This makes the pool readable in iPhone Quick Look.
+   * Do not model the pool as a negative hole in the ground.
+   * Quick Look/AR works more reliably when the model is a clean,
+   * positive-height, tabletop-style asset.
+   *
+   * This composition is intentionally closer to the Android AR preview:
+   * - deck platform
+   * - visible pool shell
+   * - grey coping frame
+   * - blue water surface
+   * - visible steps
    */
   const group = new Group();
-  group.name = "Pools3D_Dynamic_Pool_Visual_V2";
+  group.name = "Pools3D_iPhone_AR_Pool_V3";
 
-  const deckMargin = 1.9;
-  const deckThickness = 0.12;
-  const wallThickness = 0.14;
-  const copingThickness = 0.16;
-  const copingWidth = 0.32;
-
+  const deckMargin = 1.7;
   const outerLength = length + deckMargin * 2;
   const outerWidth = width + deckMargin * 2;
 
+  const deckThickness = 0.12;
+  const shellHeight = Math.min(Math.max(depth * 0.18, 0.22), 0.34);
+  const wallThickness = 0.18;
+  const copingWidth = 0.32;
+  const copingHeight = 0.12;
+
+  const deckTopY = deckThickness;
+  const shellCenterY = deckTopY + shellHeight / 2;
+  const copingCenterY = deckTopY + shellHeight + copingHeight / 2;
+  const waterY = deckTopY + shellHeight + 0.015;
+
   const deckMaterial = createMaterial("Deck Greige", "#b8a78f", 0.78);
-  const deckSideMaterial = createMaterial("Deck Edge Shadow", "#6b6255", 0.85);
+  const deckEdgeMaterial = createMaterial("Deck Edge", "#7a705f", 0.86);
 
   const tileMaterial = createMaterial(
     "Pool Tile",
-    config.materials.poolTile === "deepNavy" ? "#0f3a5f" : "#1fb9df",
-    0.42
-  );
-
-  const tileLightMaterial = createMaterial(
-    "Pool Step Tile",
-    config.materials.poolTile === "deepNavy" ? "#1d5f8f" : "#53d5ee",
+    config.materials.poolTile === "deepNavy" ? "#0f3a5f" : "#16b8d8",
     0.38
   );
 
-  const copingMaterial = createMaterial("Silver Grey Coping", "#cbd5e1", 0.55);
+  const tileSideMaterial = createMaterial(
+    "Pool Tile Side",
+    config.materials.poolTile === "deepNavy" ? "#08283f" : "#0a92b4",
+    0.52
+  );
+
+  const stepMaterial = createMaterial(
+    "Pool Steps",
+    config.materials.poolTile === "deepNavy" ? "#246f9f" : "#7ce4f5",
+    0.35
+  );
+
+  const copingMaterial = createMaterial("Silver Grey Coping", "#cbd5e1", 0.48);
 
   const waterMaterial = createMaterial(
     "Water",
     getWaterColor(config.materials.water),
-    0.12
+    0.08
   );
 
-  const waterHighlightMaterial = createMaterial(
-    "Water Highlight",
-    "#dffbff",
-    0.2
+  const waterHighlightMaterial = createMaterial("Water Shine", "#ecfeff", 0.18);
+
+  /**
+   * Main deck platform.
+   * This avoids the broken/cross-like look from separate deck slabs.
+   */
+  group.add(
+    createBox({
+      name: "Deck Platform",
+      size: [outerLength, deckThickness, outerWidth],
+      position: [0, deckThickness / 2, 0],
+      material: deckMaterial,
+    })
   );
 
   /**
-   * Deck with real center opening.
-   * This is much better than one full deck slab because the pool is visible.
+   * Deck side edges so the platform has visible thickness.
    */
-  addDeckWithOpening({
+  addDeckEdges({
     group,
-    length,
-    width,
     outerLength,
     outerWidth,
-    deckMargin,
     deckThickness,
-    deckMaterial,
-    deckSideMaterial,
+    deckEdgeMaterial,
   });
 
   /**
-   * Pool basin.
-   * Top sits around deck level, bottom goes down by configured depth.
+   * Pool shell walls placed on top of the deck.
+   * This is not a real excavation; it is a clear AR presentation model.
    */
-  addPoolBasin({
+  addRaisedPoolShell({
     group,
     length,
     width,
-    depth,
+    shellHeight,
     wallThickness,
+    shellCenterY,
     tileMaterial,
+    tileSideMaterial,
   });
 
   /**
-   * Coping frame around the pool.
+   * Coping frame on top of the shell.
    */
   addCopingFrame({
     group,
     length,
     width,
-    copingThickness,
     copingWidth,
+    copingHeight,
+    copingCenterY,
     copingMaterial,
   });
 
   /**
    * Water surface.
-   * Kept slightly below coping top and slightly above deck opening
-   * so it remains visible in Quick Look.
    */
   group.add(
     createBox({
       name: "Water Surface",
-      size: [length - 0.42, 0.035, width - 0.42],
-      position: [0, 0.025, 0],
+      size: [length - copingWidth * 1.6, 0.035, width - copingWidth * 1.6],
+      position: [0, waterY, 0],
       material: waterMaterial,
     })
   );
 
   /**
-   * Simple water highlights.
-   * These make the USDZ look more like water even without WebGL shaders.
+   * Water highlights.
    */
   group.add(
     createBox({
-      name: "Water Highlight 1",
-      size: [length * 0.42, 0.012, 0.035],
-      position: [-length * 0.12, 0.055, -width * 0.18],
+      name: "Water Shine Long",
+      size: [length * 0.58, 0.012, 0.035],
+      position: [-length * 0.05, waterY + 0.024, -width * 0.18],
       material: waterHighlightMaterial,
     })
   );
 
   group.add(
     createBox({
-      name: "Water Highlight 2",
-      size: [length * 0.28, 0.012, 0.03],
-      position: [length * 0.16, 0.058, width * 0.12],
-      material: waterHighlightMaterial,
-    })
-  );
-
-  group.add(
-    createBox({
-      name: "Water Highlight 3",
-      size: [length * 0.18, 0.012, 0.025],
-      position: [length * 0.02, 0.06, width * 0.28],
+      name: "Water Shine Short",
+      size: [length * 0.34, 0.012, 0.03],
+      position: [length * 0.12, waterY + 0.027, width * 0.18],
       material: waterHighlightMaterial,
     })
   );
 
   /**
-   * Visible entry steps.
-   * We place them near the left inside edge and slightly above water surface
-   * so Quick Look clearly shows them.
+   * Entry steps.
    */
-  addVisibleSteps({
+  addPresentationSteps({
     group,
     length,
     width,
-    tileLightMaterial,
+    shellHeight,
+    deckTopY,
+    waterY,
+    stepMaterial,
   });
 
   /**
-   * Move the whole model so the deck top reads nicely in Quick Look.
+   * Small blue tile accent line like Android preview.
+   */
+  addAccentLines({
+    group,
+    length,
+    width,
+    deckTopY,
+    tileMaterial,
+  });
+
+  /**
+   * Center model on origin.
    */
   group.position.set(0, 0, 0);
 
   return group;
 }
 
-function addDeckWithOpening({
+function addDeckEdges({
   group,
-  length,
-  width,
   outerLength,
   outerWidth,
-  deckMargin,
   deckThickness,
-  deckMaterial,
-  deckSideMaterial,
+  deckEdgeMaterial,
 }: {
   group: Group;
-  length: number;
-  width: number;
   outerLength: number;
   outerWidth: number;
-  deckMargin: number;
   deckThickness: number;
-  deckMaterial: Material;
-  deckSideMaterial: Material;
+  deckEdgeMaterial: Material;
 }) {
-  const deckY = -deckThickness / 2;
+  const edgeThickness = 0.08;
+  const y = deckThickness / 2;
 
-  /**
-   * North and south deck slabs.
-   */
   group.add(
     createBox({
-      name: "Deck North Slab",
-      size: [outerLength, deckThickness, deckMargin],
-      position: [0, deckY, width / 2 + deckMargin / 2],
-      material: deckMaterial,
+      name: "Deck Edge North",
+      size: [outerLength, deckThickness, edgeThickness],
+      position: [0, y, outerWidth / 2],
+      material: deckEdgeMaterial,
     })
   );
 
   group.add(
     createBox({
-      name: "Deck South Slab",
-      size: [outerLength, deckThickness, deckMargin],
-      position: [0, deckY, -width / 2 - deckMargin / 2],
-      material: deckMaterial,
-    })
-  );
-
-  /**
-   * East and west deck slabs.
-   */
-  group.add(
-    createBox({
-      name: "Deck East Slab",
-      size: [deckMargin, deckThickness, width],
-      position: [length / 2 + deckMargin / 2, deckY, 0],
-      material: deckMaterial,
+      name: "Deck Edge South",
+      size: [outerLength, deckThickness, edgeThickness],
+      position: [0, y, -outerWidth / 2],
+      material: deckEdgeMaterial,
     })
   );
 
   group.add(
     createBox({
-      name: "Deck West Slab",
-      size: [deckMargin, deckThickness, width],
-      position: [-length / 2 - deckMargin / 2, deckY, 0],
-      material: deckMaterial,
-    })
-  );
-
-  /**
-   * Dark outside edges give the thin deck visible thickness in USDZ.
-   */
-  group.add(
-    createBox({
-      name: "Deck Outer Edge North",
-      size: [outerLength, deckThickness * 1.1, 0.08],
-      position: [0, deckY - 0.01, outerWidth / 2],
-      material: deckSideMaterial,
+      name: "Deck Edge East",
+      size: [edgeThickness, deckThickness, outerWidth],
+      position: [outerLength / 2, y, 0],
+      material: deckEdgeMaterial,
     })
   );
 
   group.add(
     createBox({
-      name: "Deck Outer Edge South",
-      size: [outerLength, deckThickness * 1.1, 0.08],
-      position: [0, deckY - 0.01, -outerWidth / 2],
-      material: deckSideMaterial,
-    })
-  );
-
-  group.add(
-    createBox({
-      name: "Deck Outer Edge East",
-      size: [0.08, deckThickness * 1.1, outerWidth],
-      position: [outerLength / 2, deckY - 0.01, 0],
-      material: deckSideMaterial,
-    })
-  );
-
-  group.add(
-    createBox({
-      name: "Deck Outer Edge West",
-      size: [0.08, deckThickness * 1.1, outerWidth],
-      position: [-outerLength / 2, deckY - 0.01, 0],
-      material: deckSideMaterial,
+      name: "Deck Edge West",
+      size: [edgeThickness, deckThickness, outerWidth],
+      position: [-outerLength / 2, y, 0],
+      material: deckEdgeMaterial,
     })
   );
 }
 
-function addPoolBasin({
+function addRaisedPoolShell({
   group,
   length,
   width,
-  depth,
+  shellHeight,
   wallThickness,
+  shellCenterY,
   tileMaterial,
+  tileSideMaterial,
 }: {
   group: Group;
   length: number;
   width: number;
-  depth: number;
+  shellHeight: number;
   wallThickness: number;
+  shellCenterY: number;
   tileMaterial: Material;
+  tileSideMaterial: Material;
 }) {
-  const wallCenterY = -depth / 2;
-  const wallTopY = 0;
-
-  /**
-   * Pool bottom.
-   */
-  group.add(
-    createBox({
-      name: "Pool Bottom",
-      size: [length - wallThickness * 2, 0.08, width - wallThickness * 2],
-      position: [0, -depth, 0],
-      material: tileMaterial,
-    })
-  );
-
-  /**
-   * Inner walls.
-   */
   group.add(
     createBox({
       name: "Pool Wall North",
-      size: [length, depth, wallThickness],
-      position: [0, wallCenterY, width / 2 - wallThickness / 2],
-      material: tileMaterial,
+      size: [length, shellHeight, wallThickness],
+      position: [0, shellCenterY, width / 2],
+      material: tileSideMaterial,
     })
   );
 
   group.add(
     createBox({
       name: "Pool Wall South",
-      size: [length, depth, wallThickness],
-      position: [0, wallCenterY, -width / 2 + wallThickness / 2],
-      material: tileMaterial,
+      size: [length, shellHeight, wallThickness],
+      position: [0, shellCenterY, -width / 2],
+      material: tileSideMaterial,
     })
   );
 
   group.add(
     createBox({
       name: "Pool Wall East",
-      size: [wallThickness, depth, width],
-      position: [length / 2 - wallThickness / 2, wallCenterY, 0],
-      material: tileMaterial,
+      size: [wallThickness, shellHeight, width],
+      position: [length / 2, shellCenterY, 0],
+      material: tileSideMaterial,
     })
   );
 
   group.add(
     createBox({
       name: "Pool Wall West",
-      size: [wallThickness, depth, width],
-      position: [-length / 2 + wallThickness / 2, wallCenterY, 0],
-      material: tileMaterial,
+      size: [wallThickness, shellHeight, width],
+      position: [-length / 2, shellCenterY, 0],
+      material: tileSideMaterial,
     })
   );
 
   /**
-   * Thin bright inner rim at waterline.
+   * Thin visible inner tile band.
    */
   group.add(
     createBox({
-      name: "Inner Tile Rim North",
-      size: [length - 0.3, 0.055, 0.08],
-      position: [0, wallTopY + 0.03, width / 2 - 0.23],
+      name: "Inner Tile Band North",
+      size: [length - 0.45, 0.055, 0.08],
+      position: [0, shellCenterY + shellHeight / 2 + 0.012, width / 2 - 0.24],
       material: tileMaterial,
     })
   );
 
   group.add(
     createBox({
-      name: "Inner Tile Rim South",
-      size: [length - 0.3, 0.055, 0.08],
-      position: [0, wallTopY + 0.03, -width / 2 + 0.23],
+      name: "Inner Tile Band South",
+      size: [length - 0.45, 0.055, 0.08],
+      position: [0, shellCenterY + shellHeight / 2 + 0.012, -width / 2 + 0.24],
       material: tileMaterial,
     })
   );
@@ -513,24 +502,24 @@ function addCopingFrame({
   group,
   length,
   width,
-  copingThickness,
   copingWidth,
+  copingHeight,
+  copingCenterY,
   copingMaterial,
 }: {
   group: Group;
   length: number;
   width: number;
-  copingThickness: number;
   copingWidth: number;
+  copingHeight: number;
+  copingCenterY: number;
   copingMaterial: Material;
 }) {
-  const copingY = copingThickness / 2 - 0.005;
-
   group.add(
     createBox({
       name: "Coping North",
-      size: [length + copingWidth * 2, copingThickness, copingWidth],
-      position: [0, copingY, width / 2 + copingWidth / 2],
+      size: [length + copingWidth * 2, copingHeight, copingWidth],
+      position: [0, copingCenterY, width / 2 + copingWidth / 2],
       material: copingMaterial,
     })
   );
@@ -538,8 +527,8 @@ function addCopingFrame({
   group.add(
     createBox({
       name: "Coping South",
-      size: [length + copingWidth * 2, copingThickness, copingWidth],
-      position: [0, copingY, -width / 2 - copingWidth / 2],
+      size: [length + copingWidth * 2, copingHeight, copingWidth],
+      position: [0, copingCenterY, -width / 2 - copingWidth / 2],
       material: copingMaterial,
     })
   );
@@ -547,8 +536,8 @@ function addCopingFrame({
   group.add(
     createBox({
       name: "Coping East",
-      size: [copingWidth, copingThickness, width + copingWidth * 2],
-      position: [length / 2 + copingWidth / 2, copingY, 0],
+      size: [copingWidth, copingHeight, width + copingWidth * 2],
+      position: [length / 2 + copingWidth / 2, copingCenterY, 0],
       material: copingMaterial,
     })
   );
@@ -556,27 +545,33 @@ function addCopingFrame({
   group.add(
     createBox({
       name: "Coping West",
-      size: [copingWidth, copingThickness, width + copingWidth * 2],
-      position: [-length / 2 - copingWidth / 2, copingY, 0],
+      size: [copingWidth, copingHeight, width + copingWidth * 2],
+      position: [-length / 2 - copingWidth / 2, copingCenterY, 0],
       material: copingMaterial,
     })
   );
 }
 
-function addVisibleSteps({
+function addPresentationSteps({
   group,
   length,
   width,
-  tileLightMaterial,
+  shellHeight,
+  deckTopY,
+  waterY,
+  stepMaterial,
 }: {
   group: Group;
   length: number;
   width: number;
-  tileLightMaterial: Material;
+  shellHeight: number;
+  deckTopY: number;
+  waterY: number;
+  stepMaterial: Material;
 }) {
-  const stepWidth = Math.min(width - 0.7, 2.4);
-  const stepThickness = 0.09;
-  const startX = -length / 2 + 0.55;
+  const stepWidth = Math.min(width - 0.9, 2.2);
+  const stepX = -length / 2 + 0.8;
+  const stepHeight = 0.055;
 
   const steps: Array<{
     name: string;
@@ -585,18 +580,18 @@ function addVisibleSteps({
   }> = [
     {
       name: "Entry Step Top",
-      size: [0.65, stepThickness, stepWidth],
-      position: [startX, 0.065, 0],
+      size: [0.7, stepHeight, stepWidth],
+      position: [stepX, waterY + 0.03, 0],
     },
     {
       name: "Entry Step Middle",
-      size: [0.95, stepThickness, stepWidth],
-      position: [startX + 0.22, 0.025, 0],
+      size: [1.05, stepHeight, stepWidth],
+      position: [stepX + 0.24, deckTopY + shellHeight * 0.58, 0],
     },
     {
       name: "Entry Step Lower",
-      size: [1.25, stepThickness, stepWidth],
-      position: [startX + 0.44, -0.015, 0],
+      size: [1.4, stepHeight, stepWidth],
+      position: [stepX + 0.48, deckTopY + shellHeight * 0.38, 0],
     },
   ];
 
@@ -606,10 +601,44 @@ function addVisibleSteps({
         name: step.name,
         size: step.size,
         position: step.position,
-        material: tileLightMaterial,
+        material: stepMaterial,
       })
     );
   }
+}
+
+function addAccentLines({
+  group,
+  length,
+  width,
+  deckTopY,
+  tileMaterial,
+}: {
+  group: Group;
+  length: number;
+  width: number;
+  deckTopY: number;
+  tileMaterial: Material;
+}) {
+  const y = deckTopY + 0.01;
+
+  group.add(
+    createBox({
+      name: "Accent Line Front",
+      size: [length + 0.6, 0.022, 0.055],
+      position: [0, y, -width / 2 - 0.52],
+      material: tileMaterial,
+    })
+  );
+
+  group.add(
+    createBox({
+      name: "Accent Line Back",
+      size: [length + 0.6, 0.022, 0.055],
+      position: [0, y, width / 2 + 0.52],
+      material: tileMaterial,
+    })
+  );
 }
 
 function createMaterial(name: string, color: string, roughness: number) {
@@ -623,7 +652,7 @@ function createMaterial(name: string, color: string, roughness: number) {
 
   return material;
 }
- 
+
 function createBox({
   name,
   size,
