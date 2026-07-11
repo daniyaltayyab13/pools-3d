@@ -80,7 +80,7 @@ export function StudioExperience() {
               position: [8.5, 5.8, 9.5],
               fov: 48,
             }}
-            shadows
+            shadows="percentage"
             dpr={[1, 2]}
             gl={{
               antialias: true,
