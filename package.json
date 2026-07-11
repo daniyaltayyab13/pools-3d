@@ -4,6 +4,9 @@
   "workspaces": [
     "apps/*"
   ],
+  "overrides": {
+    "three": "0.182.0"
+  },
   "scripts": {
     "dev:web": "npm run dev -w @pools3d/web",
     "dev:server": "npm run dev -w @pools3d/server",
