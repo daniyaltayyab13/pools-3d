@@ -1,0 +1,21 @@
+{
+  "previewId": "099c2064-17b2-4ec2-805a-59b419992577",
+  "mode": "dynamic-usdz-v1",
+  "config": {
+    "version": 1,
+    "shape": "rectangular",
+    "dimensions": {
+      "length": 8,
+      "width": 4,
+      "depth": 1.5
+    },
+    "materials": {
+      "poolTile": "brightAzure",
+      "coping": "silverGrey",
+      "deck": "greige",
+      "water": "caribbean"
+    },
+    "source": "studio"
+  },
+  "createdAt": "2026-07-11T16:59:57.818Z"
+}

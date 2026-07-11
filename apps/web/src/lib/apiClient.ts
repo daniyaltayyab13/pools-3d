@@ -171,7 +171,8 @@ export type IphoneArPreviewResponse = {
   mode:
   | "static-usdz-fallback"
   | "server-static-usdz-fallback"
-  | "dynamic-usdz";
+  | "dynamic-usdz"
+  | "dynamic-usdz-v1";
   config: DesignPreviewInput;
   quickLook: {
     platform: "ios";
