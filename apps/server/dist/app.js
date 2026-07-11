@@ -12,6 +12,7 @@ const env_1 = require("./config/env");
 const health_1 = require("./routes/health");
 const designs_1 = require("./routes/designs");
 const ar_1 = require("./routes/ar");
+const paths_1 = require("./config/paths");
 /**
  * Express app configuration.
  *
@@ -26,6 +27,13 @@ const ar_1 = require("./routes/ar");
  */
 function createApp() {
     const app = (0, express_1.default)();
+    /**
+     * Trust Railway/Vercel proxy headers.
+     *
+     * This helps Express understand the original protocol/host
+     * when building public URLs later.
+    */
+    app.set("trust proxy", 1);
     /**
      * Security headers.
      */
@@ -64,8 +72,25 @@ function createApp() {
     app.use(express_1.default.json({ limit: "10mb" }));
     /**
      * Request logging.
-     */
+    */
     app.use((0, morgan_1.default)(env_1.env.NODE_ENV === "production" ? "combined" : "dev"));
+    /**
+     * Generated USDZ asset hosting.
+     *
+     * Files written to:
+     * apps/server/storage/generated/usdz
+     *
+     * Public route:
+     * /generated/usdz/<previewId>.usdz
+    */
+    app.use("/generated/usdz", express_1.default.static(paths_1.generatedUsdzDir, {
+        setHeaders(response, filePath) {
+            if (filePath.endsWith(".usdz")) {
+                response.setHeader("Content-Type", "model/vnd.usdz+zip");
+                response.setHeader("Cache-Control", "public, max-age=3600");
+            }
+        },
+    }));
     /**
      * Basic health routes.
      */

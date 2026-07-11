@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+# server build output
+/apps/server/dist/
+
+# server generated runtime files
+/apps/server/storage/generated/*
+!/apps/server/storage/generated/usdz/
+!/apps/server/storage/generated/metadata/
+!/apps/server/storage/generated/usdz/.gitkeep
+!/apps/server/storage/generated/metadata/.gitkeep

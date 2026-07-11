@@ -3,9 +3,13 @@
  *
  * NEXT_PUBLIC_API_BASE_URL is public because browser code needs to know
  * where the backend server is hosted.
+ *
+ * We remove trailing slashes so requests do not become:
+ * https://server.com//api/health
  */
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+export const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000"
+).replace(/\/+$/, "");
 
 /**
  * Standard API response shape used by our backend.
@@ -164,7 +168,10 @@ export async function createDesignPreview(
 
 export type IphoneArPreviewResponse = {
   previewId: string;
-  mode: "static-usdz-fallback";
+  mode:
+  | "static-usdz-fallback"
+  | "server-static-usdz-fallback"
+  | "dynamic-usdz";
   config: DesignPreviewInput;
   quickLook: {
     platform: "ios";

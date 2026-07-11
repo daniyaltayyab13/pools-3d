@@ -4,9 +4,12 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import { allowedOrigins, env } from "./config/env";
+
 import { healthRouter } from "./routes/health";
 import { designsRouter } from "./routes/designs";
 import { arRouter } from "./routes/ar";
+
+import { generatedUsdzDir } from "./config/paths";
 
 /**
  * Express app configuration.
@@ -22,6 +25,14 @@ import { arRouter } from "./routes/ar";
  */
 export function createApp() {
   const app = express();
+
+  /**
+   * Trust Railway/Vercel proxy headers.
+   *
+   * This helps Express understand the original protocol/host
+   * when building public URLs later.
+  */
+  app.set("trust proxy", 1);
 
   /**
    * Security headers.
@@ -68,8 +79,29 @@ export function createApp() {
 
   /**
    * Request logging.
-   */
+  */
   app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
+
+  /**
+   * Generated USDZ asset hosting.
+   *
+   * Files written to:
+   * apps/server/storage/generated/usdz
+   *
+   * Public route:
+   * /generated/usdz/<previewId>.usdz
+  */
+  app.use(
+    "/generated/usdz",
+    express.static(generatedUsdzDir, {
+      setHeaders(response, filePath) {
+        if (filePath.endsWith(".usdz")) {
+          response.setHeader("Content-Type", "model/vnd.usdz+zip");
+          response.setHeader("Cache-Control", "public, max-age=3600");
+        }
+      },
+    })
+  );
 
   /**
    * Basic health routes.
