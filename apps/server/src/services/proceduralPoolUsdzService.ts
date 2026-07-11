@@ -623,7 +623,7 @@ function createMaterial(name: string, color: string, roughness: number) {
 
   return material;
 }
-
+ 
 function createBox({
   name,
   size,
