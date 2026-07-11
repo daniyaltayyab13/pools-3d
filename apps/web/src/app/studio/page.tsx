@@ -1,5 +1,5 @@
 import { StudioExperience } from "@/components/studio/StudioExperience";
-
+ 
 /**
  * Studio route.
  *
