@@ -26,6 +26,7 @@ import { xrStore } from "@/components/studio/xrStore";
 import { usePoolStore } from "@/store/usePoolStore";
 import { DesignPreviewApiCard } from "@/components/studio/DesignPreviewApiCard";
 import { IphoneArPreviewApiCard } from "@/components/studio/IphoneArPreviewApiCard";
+import { SaveDesignApiCard } from "@/components/studio/SaveDesignApiCard";
 
 /**
  * Main studio experience.
@@ -321,6 +322,7 @@ export function StudioExperience() {
                 </div>
               </ControlCard>
               
+              <SaveDesignApiCard />
               <DesignPreviewApiCard />
               <IphoneArPreviewApiCard />
               <BackendStatusCard />

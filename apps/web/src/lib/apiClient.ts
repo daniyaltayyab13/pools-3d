@@ -233,3 +233,45 @@ export async function createIphoneArPreview(
     meta: result.meta,
   };
 }
+
+export type SavedDesignResponse = {
+  id: string;
+  name: string | null;
+  config: DesignPreviewInput;
+  summary: DesignPreviewResponse["summary"];
+  createdAt: string;
+  updatedAt: string;
+  futureSharePath: string;
+  futureShareUrl: string;
+};
+
+export async function saveDesign(input: DesignPreviewInput & { name?: string }) {
+  const response = await fetch(`${API_BASE_URL}/api/designs`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Save design failed: ${response.status}`);
+  }
+
+  const result = (await response.json()) as ApiEnvelope<SavedDesignResponse>;
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  if (!result.data) {
+    throw new Error("Save design response did not include data.");
+  }
+
+  return {
+    data: result.data,
+    error: null,
+    meta: result.meta,
+  };
+}

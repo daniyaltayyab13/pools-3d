@@ -31,6 +31,13 @@ const envSchema = z.object({
    * for example static USDZ files served from apps/web/public.
   */
   FRONTEND_PUBLIC_URL: z.string().url().default("http://localhost:3000"),
+
+  /**
+   * PostgreSQL connection string.
+   *
+   * Used by Prisma to connect to Railway Postgres.
+   */
+  DATABASE_URL: z.string().url(),
 });
 
 export const env = envSchema.parse(process.env);

@@ -50,3 +50,18 @@ next-env.d.ts
 !/apps/server/storage/generated/metadata/
 !/apps/server/storage/generated/usdz/.gitkeep
 !/apps/server/storage/generated/metadata/.gitkeep
+
+# env files
+.env
+.env.*
+!.env.example
+
+# dependencies
+node_modules/
+**/node_modules/
+
+# build outputs
+.next/
+**/.next/
+dist/
+**/dist/
