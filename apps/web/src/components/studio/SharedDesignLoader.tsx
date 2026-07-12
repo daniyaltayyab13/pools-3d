@@ -37,6 +37,7 @@ export function SharedDesignLoader({ designId }: { designId: string }) {
         setDesignConfig({
           dimensions: result.data.config.dimensions,
           materials: result.data.config.materials,
+          activeDesignId: result.data.id,
         });
 
         setStatus("success");

@@ -324,8 +324,8 @@ export function StudioExperience() {
                 </div>
               </ControlCard>
               
-              <LeadInquiryCard />
               <SaveDesignApiCard />
+              <LeadInquiryCard />
               <SavedDesignsApiCard />
               <DesignPreviewApiCard />
               <IphoneArPreviewApiCard />

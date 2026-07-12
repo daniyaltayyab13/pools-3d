@@ -1,15 +1,17 @@
 /**
  * Simple POC service worker.
  *
- * Purpose:
- * - Cache the app shell
- * - Cache selected 3D/material assets
- * - Allow basic offline fallback
+ * Production only:
+ * - cache selected app shell routes
+ * - cache stable public assets
+ * - provide offline fallback
  *
- * This is intentionally simple for the POC.
+ * Important:
+ * We do not cache /_next/static here. Next.js already fingerprints production
+ * assets, and caching dev chunks can cause hydration mismatch during local work.
  */
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const SHELL_CACHE = `pools-3d-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `pools-3d-assets-${CACHE_VERSION}`;
 
@@ -19,7 +21,7 @@ const APP_SHELL = [
   "/offline.html",
   "/manifest.webmanifest",
   "/icons/pools-3d-icon.svg",
-  "/icons/pools-3d-maskable.svg"
+  "/icons/pools-3d-maskable.svg",
 ];
 
 const CORE_ASSETS = [
@@ -34,14 +36,14 @@ const CORE_ASSETS = [
   "/assets/textures/deck/greige-basecolor.jpg",
   "/assets/textures/deck/greige-normal.jpg",
   "/assets/textures/deck/greige-roughness.jpg",
-  "/assets/textures/water/water-normal.jpg"
+  "/assets/textures/water/water-normal.jpg",
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     Promise.all([
       caches.open(SHELL_CACHE).then((cache) => cache.addAll(APP_SHELL)),
-      caches.open(ASSET_CACHE).then((cache) => cache.addAll(CORE_ASSETS))
+      caches.open(ASSET_CACHE).then((cache) => cache.addAll(CORE_ASSETS)),
     ]).then(() => self.skipWaiting())
   );
 });
@@ -75,14 +77,26 @@ self.addEventListener("fetch", (event) => {
   }
 
   /**
-   * Static assets:
-   * cache first because textures/icons do not change often in the POC.
+   * Do not intercept API calls.
    */
-  if (
-    url.pathname.startsWith("/assets/") ||
-    url.pathname.startsWith("/icons/") ||
-    url.pathname.startsWith("/_next/static/")
-  ) {
+  if (url.pathname.startsWith("/api/")) {
+    return;
+  }
+
+  /**
+   * Do not intercept Next.js chunks.
+   *
+   * This prevents stale JS bundles from causing hydration mismatches.
+   */
+  if (url.pathname.startsWith("/_next/")) {
+    return;
+  }
+
+  /**
+   * Stable public assets:
+   * cache first because textures/icons do not change often.
+   */
+  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/icons/")) {
     event.respondWith(cacheFirst(request));
     return;
   }

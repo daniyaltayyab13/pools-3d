@@ -22,27 +22,46 @@ type PoolStore = {
   materials: PoolMaterials;
 
   /**
+   * Current saved design id loaded in the studio.
+   *
+   * null means:
+   * - design is not saved yet
+   * - or user changed a saved design after loading it
+   */
+  activeDesignId: string | null;
+
+  /**
    * Updates one dimension at a time.
-   * Example: setDimension("length", 9)
+   * Changing dimensions makes the current design unsaved again.
    */
   setDimension: (key: DimensionKey, value: number) => void;
 
   /**
    * Updates one material slot at a time.
-   * Example: setMaterial("poolTile", "deepNavy")
+   * Changing materials makes the current design unsaved again.
    */
   setMaterial: <K extends MaterialKey>(key: K, value: PoolMaterials[K]) => void;
+
+  /**
+   * Manually sets the currently active saved design id.
+   *
+   * Used after:
+   * - saving a new design
+   * - loading a saved/shared design
+   */
+  setActiveDesignId: (designId: string | null) => void;
 
   /**
    * Loads a complete saved design into the studio.
    *
    * Used by:
    * - Saved Designs list
-   * - future shareable design URLs
+   * - Shareable design URL
    */
   setDesignConfig: (config: {
     dimensions: PoolDimensions;
     materials: PoolMaterials;
+    activeDesignId?: string | null;
   }) => void;
 
   /**
@@ -67,6 +86,7 @@ export const DEFAULT_MATERIALS: PoolMaterials = {
 export const usePoolStore = create<PoolStore>((set) => ({
   dimensions: DEFAULT_DIMENSIONS,
   materials: DEFAULT_MATERIALS,
+  activeDesignId: null,
 
   setDimension: (key, value) => {
     set((state) => ({
@@ -74,6 +94,11 @@ export const usePoolStore = create<PoolStore>((set) => ({
         ...state.dimensions,
         [key]: value,
       },
+
+      /**
+       * User edited the design, so it is no longer exactly the saved design.
+       */
+      activeDesignId: null,
     }));
   },
 
@@ -83,28 +108,32 @@ export const usePoolStore = create<PoolStore>((set) => ({
         ...state.materials,
         [key]: value,
       },
+
+      /**
+       * User edited the design, so it is no longer exactly the saved design.
+       */
+      activeDesignId: null,
     }));
   },
 
-  /**
-   * Loads dimensions and materials from a saved design.
-   *
-   * This updates:
-   * - sliders
-   * - selected material swatches
-   * - 3D scene
-   * - Android AR placement model
-   */
+  setActiveDesignId: (designId) => {
+    set({
+      activeDesignId: designId,
+    });
+  },
+
   setDesignConfig: (config) => {
     set({
       dimensions: config.dimensions,
       materials: config.materials,
+      activeDesignId: config.activeDesignId ?? null,
     });
   },
 
   resetDimensions: () => {
     set({
       dimensions: DEFAULT_DIMENSIONS,
+      activeDesignId: null,
     });
   },
 }));

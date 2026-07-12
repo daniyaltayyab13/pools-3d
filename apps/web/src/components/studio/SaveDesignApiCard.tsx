@@ -16,11 +16,15 @@ import { usePoolStore } from "@/store/usePoolStore";
 /**
  * SaveDesignApiCard persists the current pool design to Postgres.
  *
- * This is the first MVP database-backed feature.
+ * Important Step 25 behavior:
+ * - After saving, it sets activeDesignId in the global store.
+ * - LeadInquiryCard reads that activeDesignId and attaches it to leads.
  */
 export function SaveDesignApiCard() {
   const dimensions = usePoolStore((state) => state.dimensions);
   const materials = usePoolStore((state) => state.materials);
+  const activeDesignId = usePoolStore((state) => state.activeDesignId);
+  const setActiveDesignId = usePoolStore((state) => state.setActiveDesignId);
 
   const [status, setStatus] = useState<
     "idle" | "loading" | "success" | "error"
@@ -49,9 +53,10 @@ export function SaveDesignApiCard() {
         source: "studio",
       });
 
-      setStatus("success");
       setSavedDesign(result.data);
-      setMessage("Design saved to database.");
+      setActiveDesignId(result.data.id);
+      setStatus("success");
+      setMessage("Design saved successfully. Quote requests will attach this design.");
     } catch (error) {
       setStatus("error");
       setSavedDesign(null);
@@ -113,6 +118,13 @@ export function SaveDesignApiCard() {
 
             <p className="mt-1 text-xs leading-5 text-slate-400">{message}</p>
 
+            {activeDesignId ? (
+              <p className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-2 text-xs leading-5 text-emerald-100">
+                <span className="font-bold text-white">Active design ID:</span>{" "}
+                {activeDesignId.slice(0, 8)}...
+              </p>
+            ) : null}
+
             {savedDesign ? (
               <div className="mt-3 space-y-2 rounded-xl bg-black/20 p-3 text-xs leading-5 text-slate-300">
                 <p>
@@ -134,6 +146,7 @@ export function SaveDesignApiCard() {
                   <span className="font-bold text-white">Saved:</span>{" "}
                   {new Date(savedDesign.createdAt).toLocaleTimeString()}
                 </p>
+
                 <p className="break-all">
                   <span className="font-bold text-white">Share:</span>{" "}
                   {savedDesign.futureShareUrl}

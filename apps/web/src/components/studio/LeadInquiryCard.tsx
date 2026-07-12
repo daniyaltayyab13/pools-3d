@@ -8,11 +8,14 @@ import { usePoolStore } from "@/store/usePoolStore";
 /**
  * LeadInquiryCard captures a customer inquiry for the current pool design.
  *
- * This turns the configurator into a business lead-generation tool.
+ * Important Step 25 behavior:
+ * - If a saved design is active, inquiry is attached to that saved design ID.
+ * - If user changes dimensions/materials after saving, activeDesignId becomes null.
  */
 export function LeadInquiryCard() {
   const dimensions = usePoolStore((state) => state.dimensions);
   const materials = usePoolStore((state) => state.materials);
+  const activeDesignId = usePoolStore((state) => state.activeDesignId);
 
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
@@ -30,6 +33,11 @@ export function LeadInquiryCard() {
 
   const [lead, setLead] = useState<LeadResponse | null>(null);
 
+  const canSubmit =
+    customerName.trim().length > 0 &&
+    (phone.trim().length > 0 || email.trim().length > 0) &&
+    status !== "loading";
+
   const handleSubmitLead = async () => {
     try {
       setStatus("loading");
@@ -42,6 +50,13 @@ export function LeadInquiryCard() {
         email,
         city,
         message: messageText,
+
+        /**
+         * This is the main Step 25 field.
+         * If activeDesignId exists, backend will save it on Lead.designId.
+         */
+        designId: activeDesignId ?? undefined,
+
         config: {
           version: 1,
           shape: "rectangular",
@@ -49,12 +64,17 @@ export function LeadInquiryCard() {
           materials,
           source: "studio",
         },
-        source: "studio",
+
+        source: activeDesignId ? "shared-design" : "studio",
       });
 
       setStatus("success");
       setLead(result.data);
-      setMessage("Inquiry submitted successfully.");
+      setMessage(
+        result.data.designId
+          ? "Inquiry submitted and attached to saved design."
+          : "Inquiry submitted with design config only."
+      );
 
       setCustomerName("");
       setPhone("");
@@ -122,6 +142,20 @@ export function LeadInquiryCard() {
         />
       </div>
 
+      <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-xs leading-5 text-slate-400">
+        {activeDesignId ? (
+          <p>
+            <span className="font-bold text-white">Attached saved design:</span>{" "}
+            {activeDesignId.slice(0, 8)}...
+          </p>
+        ) : (
+          <p>
+            This inquiry will include the current design config, but it is not
+            attached to a saved design yet.
+          </p>
+        )}
+      </div>
+
       <div
         className={`mt-4 rounded-xl border p-3 ${
           status === "success"
@@ -166,6 +200,11 @@ export function LeadInquiryCard() {
                 </p>
 
                 <p>
+                  <span className="font-bold text-white">Design ID:</span>{" "}
+                  {lead.designId ? `${lead.designId.slice(0, 8)}...` : "None"}
+                </p>
+
+                <p>
                   <span className="font-bold text-white">Created:</span>{" "}
                   {new Date(lead.createdAt).toLocaleString()}
                 </p>
@@ -178,8 +217,8 @@ export function LeadInquiryCard() {
       <button
         type="button"
         onClick={handleSubmitLead}
-        disabled={status === "loading"}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-300 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-200 disabled:cursor-wait disabled:bg-slate-700 disabled:text-slate-400"
+        disabled={!canSubmit}
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-300 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
       >
         <Send className="h-4 w-4" />
         {status === "loading" ? "Sending..." : "Send Inquiry"}
