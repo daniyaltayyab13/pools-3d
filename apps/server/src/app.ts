@@ -8,6 +8,7 @@ import { allowedOrigins, env } from "./config/env";
 import { healthRouter } from "./routes/health";
 import { designsRouter } from "./routes/designs";
 import { arRouter } from "./routes/ar";
+import { leadsRouter } from "./routes/leads";
 
 import { generatedUsdzDir } from "./config/paths";
 
@@ -149,6 +150,27 @@ export function createApp() {
    * - return generated iPhone AR URL
   */
   app.use("/api/ar", arRouter);
+
+  /**
+   * Lead / inquiry API routes.
+   *
+   * Base path:
+   * /api/leads
+   *
+   * Current endpoints:
+   * POST /api/leads
+   * GET /api/leads
+   *
+   * Purpose:
+   * - capture customer quote requests
+   * - attach current pool design config
+   *
+   * Future:
+   * - admin dashboard
+   * - email notifications
+   * - CRM integration
+   */
+  app.use("/api/leads", leadsRouter);
 
   /**
    * API namespace health check.

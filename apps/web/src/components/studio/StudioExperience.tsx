@@ -28,6 +28,7 @@ import { DesignPreviewApiCard } from "@/components/studio/DesignPreviewApiCard";
 import { IphoneArPreviewApiCard } from "@/components/studio/IphoneArPreviewApiCard";
 import { SaveDesignApiCard } from "@/components/studio/SaveDesignApiCard";
 import { SavedDesignsApiCard } from "@/components/studio/SavedDesignsApiCard";
+import { LeadInquiryCard } from "@/components/studio/LeadInquiryCard";
 
 /**
  * Main studio experience.
@@ -323,6 +324,7 @@ export function StudioExperience() {
                 </div>
               </ControlCard>
               
+              <LeadInquiryCard />
               <SaveDesignApiCard />
               <SavedDesignsApiCard />
               <DesignPreviewApiCard />

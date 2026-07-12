@@ -380,3 +380,64 @@ export async function getSavedDesign(
     meta: result.meta,
   };
 }
+
+export type CreateLeadInput = {
+  customerName: string;
+  email?: string;
+  phone?: string;
+  city?: string;
+  message?: string;
+  designId?: string;
+  config: DesignPreviewInput;
+  source: "studio" | "shared-design" | "ar";
+};
+
+export type LeadResponse = {
+  id: string;
+  customerName: string;
+  email: string | null;
+  phone: string | null;
+  city: string | null;
+  message: string | null;
+  designId: string | null;
+  config: DesignPreviewInput;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * Creates a customer quote/inquiry lead.
+ */
+export async function createLead(
+  input: CreateLeadInput
+): Promise<ApiSuccess<LeadResponse>> {
+  const response = await fetch(`${API_BASE_URL}/api/leads`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Create lead failed: ${response.status}`);
+  }
+
+  const result = (await response.json()) as ApiEnvelope<LeadResponse>;
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  if (!result.data) {
+    throw new Error("Create lead response did not include data.");
+  }
+
+  return {
+    data: result.data,
+    error: null,
+    meta: result.meta,
+  };
+}
