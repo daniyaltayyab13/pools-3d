@@ -34,6 +34,18 @@ type PoolStore = {
   setMaterial: <K extends MaterialKey>(key: K, value: PoolMaterials[K]) => void;
 
   /**
+   * Loads a complete saved design into the studio.
+   *
+   * Used by:
+   * - Saved Designs list
+   * - future shareable design URLs
+   */
+  setDesignConfig: (config: {
+    dimensions: PoolDimensions;
+    materials: PoolMaterials;
+  }) => void;
+
+  /**
    * Brings the pool back to a clean default demo size.
    */
   resetDimensions: () => void;
@@ -72,6 +84,22 @@ export const usePoolStore = create<PoolStore>((set) => ({
         [key]: value,
       },
     }));
+  },
+
+  /**
+   * Loads dimensions and materials from a saved design.
+   *
+   * This updates:
+   * - sliders
+   * - selected material swatches
+   * - 3D scene
+   * - Android AR placement model
+   */
+  setDesignConfig: (config) => {
+    set({
+      dimensions: config.dimensions,
+      materials: config.materials,
+    });
   },
 
   resetDimensions: () => {

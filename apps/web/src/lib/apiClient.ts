@@ -275,3 +275,108 @@ export async function saveDesign(input: DesignPreviewInput & { name?: string }) 
     meta: result.meta,
   };
 }
+
+export type SavedDesignListItem = {
+  id: string;
+  name: string | null;
+  shape: string;
+  length: number;
+  width: number;
+  depth: number;
+  poolTile: string;
+  coping: string;
+  deck: string;
+  water: string;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SavedDesignDetailResponse = {
+  id: string;
+  name: string | null;
+  shape: string;
+  length: number;
+  width: number;
+  depth: number;
+  poolTile: string;
+  coping: string;
+  deck: string;
+  water: string;
+  source: string;
+  config: DesignPreviewInput;
+  previewSummary: DesignPreviewResponse["summary"] | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * Lists latest saved designs from the backend.
+ */
+export async function listSavedDesigns(): Promise<
+  ApiSuccess<SavedDesignListItem[]>
+> {
+  const response = await fetch(`${API_BASE_URL}/api/designs`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`List saved designs failed: ${response.status}`);
+  }
+
+  const result = (await response.json()) as ApiEnvelope<SavedDesignListItem[]>;
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  if (!result.data) {
+    throw new Error("Saved designs response did not include data.");
+  }
+
+  return {
+    data: result.data,
+    error: null,
+    meta: result.meta,
+  };
+}
+
+/**
+ * Gets one saved design by id.
+ *
+ * Used when user clicks "Load" from Saved Designs card.
+ */
+export async function getSavedDesign(
+  id: string
+): Promise<ApiSuccess<SavedDesignDetailResponse>> {
+  const response = await fetch(`${API_BASE_URL}/api/designs/${id}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Get saved design failed: ${response.status}`);
+  }
+
+  const result =
+    (await response.json()) as ApiEnvelope<SavedDesignDetailResponse>;
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  if (!result.data) {
+    throw new Error("Saved design response did not include data.");
+  }
+
+  return {
+    data: result.data,
+    error: null,
+    meta: result.meta,
+  };
+}
