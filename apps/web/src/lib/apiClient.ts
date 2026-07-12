@@ -406,6 +406,43 @@ export type LeadResponse = {
   updatedAt: string;
 };
 
+export type LeadListItem = LeadResponse;
+
+/**
+ * Lists recent quote/inquiry leads.
+ *
+ * Used by:
+ * - admin dashboard
+ */
+export async function listLeads(): Promise<ApiSuccess<LeadListItem[]>> {
+  const response = await fetch(`${API_BASE_URL}/api/leads`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`List leads failed: ${response.status}`);
+  }
+
+  const result = (await response.json()) as ApiEnvelope<LeadListItem[]>;
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  if (!result.data) {
+    throw new Error("Leads response did not include data.");
+  }
+
+  return {
+    data: result.data,
+    error: null,
+    meta: result.meta,
+  };
+}
+
 /**
  * Creates a customer quote/inquiry lead.
  */

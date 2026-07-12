@@ -174,6 +174,7 @@ leadsRouter.get("/", async (_request, response) => {
         city: true,
         message: true,
         designId: true,
+        config: true,
         source: true,
         createdAt: true,
         updatedAt: true,

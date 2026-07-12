@@ -31,6 +31,12 @@ export default function HomePage() {
           >
             Open Studio
           </Link>
+          <Link
+            href="/dashboard"
+            className="rounded-full border border-white/10 bg-white/[0.04] px-6 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08]"
+          >
+            View Leads Dashboard
+          </Link>
         </header>
 
         <div className="grid flex-1 items-center gap-12 py-16 lg:grid-cols-[1.05fr_0.95fr]">
