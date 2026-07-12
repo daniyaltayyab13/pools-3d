@@ -1,10 +1,12 @@
-  "use client";
+"use client";
 
 import {
   AlertCircle,
   ArrowLeft,
   ExternalLink,
   Loader2,
+  LockKeyhole,
+  LogOut,
   Mail,
   MapPin,
   Phone,
@@ -12,21 +14,34 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { listLeads, type LeadListItem } from "@/lib/apiClient";
+
+const ADMIN_SESSION_KEY = "pools3d-admin-password";
 
 /**
  * LeadsDashboard displays recent customer inquiries.
  *
- * This is a POC admin dashboard.
- * Production version should be protected with authentication.
+ * Current MVP protection:
+ * - admin enters password
+ * - password is sent to backend using x-admin-password
+ * - backend protects GET /api/leads
+ *
+ * Future production option:
+ * - replace with proper auth provider
  */
 export function LeadsDashboard() {
   const [leads, setLeads] = useState<LeadListItem[]>([]);
-  const [status, setStatus] = useState<"loading" | "success" | "error">(
-    "loading"
+  const [adminPassword, setAdminPassword] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
+    "idle"
   );
-  const [message, setMessage] = useState("Loading leads...");
+
+  const [message, setMessage] = useState("Enter admin password to view leads.");
 
   const stats = useMemo(() => {
     const withPhone = leads.filter((lead) => lead.phone).length;
@@ -41,12 +56,31 @@ export function LeadsDashboard() {
     };
   }, [leads]);
 
-  const loadLeads = async () => {
+  useEffect(() => {
+    const savedPassword = sessionStorage.getItem(ADMIN_SESSION_KEY);
+
+    if (savedPassword) {
+      setAdminPassword(savedPassword);
+      setPasswordInput(savedPassword);
+      setIsUnlocked(true);
+      loadLeads(savedPassword);
+    }
+  }, []);
+
+  const loadLeads = async (passwordOverride?: string) => {
+    const passwordToUse = passwordOverride ?? adminPassword;
+
+    if (!passwordToUse) {
+      setStatus("error");
+      setMessage("Admin password is required.");
+      return;
+    }
+
     try {
       setStatus("loading");
       setMessage("Loading leads...");
 
-      const result = await listLeads();
+      const result = await listLeads(passwordToUse);
 
       setLeads(result.data);
       setStatus("success");
@@ -62,9 +96,108 @@ export function LeadsDashboard() {
     }
   };
 
-  useEffect(() => {
-    loadLeads();
-  }, []);
+  const handleLogin = async () => {
+    const trimmedPassword = passwordInput.trim();
+
+    if (!trimmedPassword) {
+      setStatus("error");
+      setMessage("Admin password is required.");
+      return;
+    }
+
+    sessionStorage.setItem(ADMIN_SESSION_KEY, trimmedPassword);
+    setAdminPassword(trimmedPassword);
+    setIsUnlocked(true);
+
+    await loadLeads(trimmedPassword);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    setAdminPassword("");
+    setPasswordInput("");
+    setIsUnlocked(false);
+    setLeads([]);
+    setStatus("idle");
+    setMessage("Enter admin password to view leads.");
+  };
+
+  if (!isUnlocked) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-white">
+        <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-4 py-8">
+          <Link
+            href="/studio"
+            className="mb-6 inline-flex w-fit items-center gap-2 text-sm font-bold text-slate-300 transition hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Studio
+          </Link>
+
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/30">
+            <div className="mb-5">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-cyan-300/10 p-3">
+                  <LockKeyhole className="h-6 w-6 text-cyan-300" />
+                </div>
+
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-[0.25em] text-cyan-300">
+                    Admin Area
+                  </p>
+                  <h1 className="mt-1 text-2xl font-black">
+                    Dashboard Login
+                  </h1>
+                </div>
+              </div>
+
+              <p className="mt-4 text-sm leading-6 text-slate-400">
+                Enter admin password to view customer leads and quote requests.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(event) => setPasswordInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    handleLogin();
+                  }
+                }}
+                placeholder="Admin password"
+                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/60"
+              />
+
+              <button
+                type="button"
+                onClick={handleLogin}
+                disabled={status === "loading"}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200 disabled:cursor-wait disabled:bg-slate-700 disabled:text-slate-400"
+              >
+                {status === "loading" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LockKeyhole className="h-4 w-4" />
+                )}
+                {status === "loading" ? "Checking..." : "Unlock Dashboard"}
+              </button>
+            </div>
+
+            {status === "error" ? (
+              <div className="mt-4 rounded-xl border border-red-400/30 bg-red-400/10 p-3">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" />
+                  <p className="text-sm leading-6 text-red-100">{message}</p>
+                </div>
+              </div>
+            ) : null}
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -91,19 +224,30 @@ export function LeadsDashboard() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={loadLeads}
-            disabled={status === "loading"}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200 disabled:cursor-wait disabled:bg-slate-700 disabled:text-slate-400"
-          >
-            {status === "loading" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCcw className="h-4 w-4" />
-            )}
-            {status === "loading" ? "Refreshing..." : "Refresh Leads"}
-          </button>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => loadLeads()}
+              disabled={status === "loading"}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200 disabled:cursor-wait disabled:bg-slate-700 disabled:text-slate-400"
+            >
+              {status === "loading" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="h-4 w-4" />
+              )}
+              {status === "loading" ? "Refreshing..." : "Refresh Leads"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08]"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
+          </div>
         </header>
 
         <section className="mb-6 grid gap-4 md:grid-cols-4">
@@ -280,7 +424,7 @@ function ContactRow({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { Router } from "express";
 import { z, ZodError } from "zod";
+import { env } from "../config/env";
 import { prisma } from "../config/prisma";
 import { designConfigSchema } from "../schemas/designConfig";
 
@@ -48,10 +49,8 @@ const createLeadSchema = z
     /**
      * Optional saved design id.
      *
-     * Current Step 23 can work without this because we submit
-     * the current design config as JSON.
-     *
-     * Later we can attach this automatically from /studio/design/:id.
+     * If inquiry is submitted after saving/loading a design,
+     * frontend sends this id so dashboard can open the exact saved design.
      */
     designId: z.string().uuid().optional(),
 
@@ -69,12 +68,11 @@ const createLeadSchema = z
  *
  * Current purpose:
  * - create quote/inquiry leads
- * - list recent leads for demo/admin use
+ * - list recent leads for admin dashboard
  *
- * Future:
- * - admin dashboard
- * - email notifications
- * - CRM integration
+ * Security:
+ * - POST /api/leads stays public for customer inquiry form
+ * - GET /api/leads is protected by x-admin-password header
  */
 export const leadsRouter = Router();
 
@@ -83,6 +81,9 @@ export const leadsRouter = Router();
  *
  * Endpoint:
  * POST /api/leads
+ *
+ * Public route:
+ * Customer quote form uses this endpoint.
  */
 leadsRouter.post("/", async (request, response) => {
   try {
@@ -158,9 +159,44 @@ leadsRouter.post("/", async (request, response) => {
  *
  * Endpoint:
  * GET /api/leads
+ *
+ * Protected route:
+ * Requires x-admin-password header.
  */
-leadsRouter.get("/", async (_request, response) => {
+leadsRouter.get("/", async (request, response) => {
   try {
+    if (!env.ADMIN_PASSWORD) {
+      response.status(500).json({
+        data: null,
+        error: {
+          code: "ADMIN_PASSWORD_NOT_CONFIGURED",
+          message: "Admin password is not configured on the server.",
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      return;
+    }
+
+    const submittedPassword = request.header("x-admin-password");
+
+    if (submittedPassword !== env.ADMIN_PASSWORD) {
+      response.status(401).json({
+        data: null,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Invalid admin password.",
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      return;
+    }
+
     const leads = await prisma.lead.findMany({
       orderBy: {
         createdAt: "desc",

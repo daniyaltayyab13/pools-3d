@@ -38,6 +38,13 @@ const envSchema = z.object({
    * Used by Prisma to connect to Railway Postgres.
    */
   DATABASE_URL: z.string().url(),
+  
+  /**
+   * Admin password used to protect dashboard lead data.
+   *
+   * Do not expose this as NEXT_PUBLIC_*.
+   */
+  ADMIN_PASSWORD: z.string().min(8).optional(),
 });
 
 export const env = envSchema.parse(process.env);

@@ -414,11 +414,14 @@ export type LeadListItem = LeadResponse;
  * Used by:
  * - admin dashboard
  */
-export async function listLeads(): Promise<ApiSuccess<LeadListItem[]>> {
+export async function listLeads(
+  adminPassword: string
+): Promise<ApiSuccess<LeadListItem[]>> {
   const response = await fetch(`${API_BASE_URL}/api/leads`, {
     method: "GET",
     headers: {
       Accept: "application/json",
+      "x-admin-password": adminPassword,
     },
   });
 
