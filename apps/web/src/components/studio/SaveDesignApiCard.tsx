@@ -1,7 +1,15 @@
 "use client";
 
-import { CheckCircle2, Database, Save, XCircle } from "lucide-react";
 import { useState } from "react";
+import {
+  CheckCircle2,
+  Copy,
+  Database,
+  ExternalLink,
+  Save,
+  XCircle,
+} from "lucide-react";
+
 import { saveDesign, type SavedDesignResponse } from "@/lib/apiClient";
 import { usePoolStore } from "@/store/usePoolStore";
 
@@ -51,6 +59,15 @@ export function SaveDesignApiCard() {
         error instanceof Error ? error.message : "Could not save design."
       );
     }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!savedDesign) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(savedDesign.futureShareUrl);
+    setMessage("Share link copied to clipboard.");
   };
 
   return (
@@ -117,6 +134,31 @@ export function SaveDesignApiCard() {
                   <span className="font-bold text-white">Saved:</span>{" "}
                   {new Date(savedDesign.createdAt).toLocaleTimeString()}
                 </p>
+                <p className="break-all">
+                  <span className="font-bold text-white">Share:</span>{" "}
+                  {savedDesign.futureShareUrl}
+                </p>
+
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyShareLink}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-slate-200"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy Link
+                  </button>
+
+                  <a
+                    href={savedDesign.futureSharePath}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-white transition hover:bg-white/[0.08]"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open
+                  </a>
+                </div>
               </div>
             ) : null}
           </div>

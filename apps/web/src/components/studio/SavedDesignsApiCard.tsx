@@ -2,6 +2,8 @@
 
 import {
   CheckCircle2,
+  Copy,
+  ExternalLink,
   FolderOpen,
   Loader2,
   RefreshCcw,
@@ -80,6 +82,14 @@ export function SavedDesignsApiCard() {
     }
   };
 
+  const handleCopyShareLink = async (designId: string) => {
+    const shareUrl = `${window.location.origin}/studio/design/${designId}`;
+
+    await navigator.clipboard.writeText(shareUrl);
+    setStatus("success");
+    setMessage("Share link copied to clipboard.");
+  };
+
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
       <div className="mb-4">
@@ -93,13 +103,12 @@ export function SavedDesignsApiCard() {
       </div>
 
       <div
-        className={`rounded-xl border p-3 ${
-          status === "success"
+        className={`rounded-xl border p-3 ${status === "success"
             ? "border-emerald-400/30 bg-emerald-400/10"
             : status === "error"
               ? "border-red-400/30 bg-red-400/10"
               : "border-white/10 bg-black/20"
-        }`}
+          }`}
       >
         <div className="flex items-start gap-3">
           {status === "success" ? (
@@ -169,14 +178,35 @@ export function SavedDesignsApiCard() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleLoadDesign(design.id)}
-                  disabled={loadingDesignId === design.id}
-                  className="shrink-0 rounded-lg bg-white px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-slate-200 disabled:cursor-wait disabled:bg-slate-700 disabled:text-slate-400"
-                >
-                  {loadingDesignId === design.id ? "Loading..." : "Load"}
-                </button>
+                <div className="flex shrink-0 flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleLoadDesign(design.id)}
+                    disabled={loadingDesignId === design.id}
+                    className="rounded-lg bg-white px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-slate-200 disabled:cursor-wait disabled:bg-slate-700 disabled:text-slate-400"
+                  >
+                    {loadingDesignId === design.id ? "Loading..." : "Load"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCopyShareLink(design.id)}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-white transition hover:bg-white/[0.08]"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </button>
+
+                  <a
+                    href={`/studio/design/${design.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-white transition hover:bg-white/[0.08]"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open
+                  </a>
+                </div>
               </div>
             </article>
           ))}
